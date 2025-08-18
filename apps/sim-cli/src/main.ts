@@ -66,15 +66,17 @@ async function main() {
     // Determine which team has possession
     const offTeam = state.offense === A.id ? A : B;
     const defTeam = state.offense === A.id ? B : A;
-    
+
     const prevScore = { ...state.score };
     state = engine.run(offTeam, defTeam, state);
     state.poss++;
     possCount++;
-    
+
     // Debug: log when score changes
     if (state.score.off !== prevScore.off || state.score.def !== prevScore.def) {
-      console.log(`Possession ${possCount}: Score changed from ${prevScore.off}-${prevScore.def} to ${state.score.off}-${state.score.def}`);
+      console.log(
+        `Possession ${possCount}: Score changed from ${prevScore.off}-${prevScore.def} to ${state.score.off}-${state.score.def}`
+      );
     }
   }
   console.log(`Possessions: ${possCount}, Score (view-of-offense): ${state.score.off}-${state.score.def}`);
