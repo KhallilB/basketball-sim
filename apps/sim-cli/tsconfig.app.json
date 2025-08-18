@@ -10,6 +10,9 @@
   "exclude": ["eslint.config.js", "eslint.config.cjs", "eslint.config.mjs"],
   "references": [
     {
+      "path": "../../libs/models/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/types/tsconfig.lib.json"
     },
     {

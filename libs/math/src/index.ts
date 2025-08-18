@@ -15,13 +15,13 @@ import type { Position } from '@basketball-sim/types';
 export const COURT = {
   LENGTH: 94,
   WIDTH: 50,
-  THREE_POINT_LINE: 23.75,  // Distance from center of basket
-  FREE_THROW_LINE: 15,      // Distance from backboard
-  PAINT_WIDTH: 16,          // Width of paint/lane
-  BASKET_HEIGHT: 10,        // Height of rim
+  THREE_POINT_LINE: 23.75, // Distance from center of basket
+  FREE_THROW_LINE: 15, // Distance from backboard
+  PAINT_WIDTH: 16, // Width of paint/lane
+  BASKET_HEIGHT: 10, // Height of rim
   BASKETS: {
-    HOME: { x: 5.25, y: 25 },      // Home basket position
-    AWAY: { x: 88.75, y: 25 }      // Away basket position  
+    HOME: { x: 5.25, y: 25 }, // Home basket position
+    AWAY: { x: 88.75, y: 25 } // Away basket position
   }
 } as const;
 
@@ -60,12 +60,12 @@ export function distanceToBasket(pos: Position, isOffense: boolean): number {
 export function isInsideThreePoint(pos: Position, isOffense: boolean): boolean {
   const basket = isOffense ? COURT.BASKETS.HOME : COURT.BASKETS.AWAY;
   const dist = distance(pos, basket);
-  
+
   // Special handling for corners (shorter three-point line)
   if (pos.y <= 14 || pos.y >= 36) {
     return dist <= 22; // Corner three is 22 feet
   }
-  
+
   return dist <= COURT.THREE_POINT_LINE;
 }
 
@@ -92,7 +92,7 @@ export function angle(from: Position, to: Position): number {
  */
 export function getShotZone(pos: Position, isOffense: boolean): 'rim' | 'mid' | 'three' {
   const distToBasket = distanceToBasket(pos, isOffense);
-  
+
   if (distToBasket <= 5) return 'rim';
   if (isInsideThreePoint(pos, isOffense)) return 'mid';
   return 'three';
@@ -104,20 +104,20 @@ export function getShotZone(pos: Position, isOffense: boolean): 'rim' | 'mid' | 
  */
 export function calculateSpacing(positions: Position[]): number {
   if (positions.length < 2) return 1;
-  
+
   let totalDistance = 0;
   let pairs = 0;
-  
+
   for (let i = 0; i < positions.length; i++) {
     for (let j = i + 1; j < positions.length; j++) {
       totalDistance += distance(positions[i], positions[j]);
       pairs++;
     }
   }
-  
+
   const avgDistance = totalDistance / pairs;
   const idealDistance = 15; // Ideal spacing of 15 feet between players
-  
+
   // Convert to 0-1 scale where closer to ideal = higher score
   return Math.min(1, avgDistance / idealDistance);
 }
@@ -134,21 +134,21 @@ export function calculateOpenLanes(
 ): number {
   const basket = isOffense ? COURT.BASKETS.HOME : COURT.BASKETS.AWAY;
   const directionToBasket = angle(ballPosition, basket);
-  
+
   // Check for defenders in driving lanes (45-degree cone toward basket)
   const laneWidth = Math.PI / 4; // 45 degrees
   let blockedLanes = 0;
-  
+
   for (const defPos of defensivePositions) {
     const defAngle = angle(ballPosition, defPos);
     const angleDiff = Math.abs(defAngle - directionToBasket);
-    
+
     // If defender is within driving lane and close enough to matter
     if (angleDiff <= laneWidth && distance(ballPosition, defPos) <= 10) {
       blockedLanes++;
     }
   }
-  
+
   // Return inverse of blocked lanes ratio
   return Math.max(0, 1 - blockedLanes / Math.max(1, defensivePositions.length));
 }
@@ -157,27 +157,104 @@ export function calculateOpenLanes(
  * Calculate shot quality based on position and contest
  * Returns 0-1, where 1 = wide open shot
  */
-export function calculateShotQuality(
-  shooterPos: Position,
-  defenderPos: Position | null,
-  isOffense: boolean
-): number {
+export function calculateShotQuality(shooterPos: Position, defenderPos: Position | null, isOffense: boolean): number {
   const zone = getShotZone(shooterPos, isOffense);
   let baseQuality = 0.5;
-  
+
   // Base quality by zone
   switch (zone) {
-    case 'rim': baseQuality = 0.8; break;
-    case 'mid': baseQuality = 0.6; break;
-    case 'three': baseQuality = 0.4; break;
+    case 'rim':
+      baseQuality = 0.8;
+      break;
+    case 'mid':
+      baseQuality = 0.6;
+      break;
+    case 'three':
+      baseQuality = 0.4;
+      break;
   }
-  
+
   // Adjust for defensive contest
   if (defenderPos) {
     const contestDistance = distance(shooterPos, defenderPos);
     const contestPenalty = Math.max(0, (6 - contestDistance) / 6); // Full contest at 0 feet, no contest at 6+ feet
-    baseQuality *= (1 - contestPenalty * 0.4); // Max 40% penalty for tight contest
+    baseQuality *= 1 - contestPenalty * 0.4; // Max 40% penalty for tight contest
   }
-  
+
   return clamp(baseQuality, 0, 1);
+}
+
+/**
+ * Calculate rebound location based on shot trajectory and location
+ */
+export function calculateReboundLocation(
+  shotLocation: Position,
+  trajectory: import('@basketball-sim/types').ReboundTrajectory,
+  isOffense: boolean
+): Position {
+  const basket = isOffense ? COURT.BASKETS.HOME : COURT.BASKETS.AWAY;
+
+  // Base rebound location near the basket
+  let reboundX = basket.x;
+  let reboundY = basket.y;
+
+  // Adjust based on trajectory
+  switch (trajectory) {
+    case 'short':
+      // Short shots rebound closer to basket
+      reboundX += (shotLocation.x - basket.x) * 0.3;
+      reboundY += (shotLocation.y - basket.y) * 0.3;
+      break;
+    case 'long':
+      // Long shots rebound farther from basket
+      reboundX += (shotLocation.x - basket.x) * 0.7;
+      reboundY += (shotLocation.y - basket.y) * 0.7;
+      break;
+    case 'soft':
+      // Soft shots tend to stay near the rim
+      reboundX += (Math.random() - 0.5) * 4;
+      reboundY += (Math.random() - 0.5) * 4;
+      break;
+    case 'hard':
+      // Hard shots can bounce anywhere
+      reboundX += (Math.random() - 0.5) * 12;
+      reboundY += (Math.random() - 0.5) * 8;
+      break;
+  }
+
+  // Keep within court bounds
+  return {
+    x: clamp(reboundX, 0, COURT.LENGTH),
+    y: clamp(reboundY, 0, COURT.WIDTH)
+  };
+}
+
+/**
+ * Calculate rebounding weight based on position, ratings, and boxing out
+ */
+export function calculateReboundWeight(
+  player: any, // Player ratings
+  position: Position,
+  reboundLocation: Position,
+  boxingOut: boolean,
+  beingBoxedOut: boolean
+): number {
+  // Base weight from rebound rating and physical attributes
+  const baseWeight =
+    (player.rebound * 0.4 + player.vertical * 0.3 + player.strength * 0.2 + player.heightIn * 0.1) / 100;
+
+  // Distance penalty - closer is better
+  const distanceToRebound = distance(position, reboundLocation);
+  const distancePenalty = Math.max(0, 1 - distanceToRebound / 10);
+
+  // Boxing out bonuses/penalties
+  let boxOutModifier = 1.0;
+  if (boxingOut) {
+    boxOutModifier = 1.4; // Big advantage for boxing out
+  }
+  if (beingBoxedOut) {
+    boxOutModifier = 0.6; // Significant disadvantage
+  }
+
+  return baseWeight * distancePenalty * boxOutModifier;
 }
