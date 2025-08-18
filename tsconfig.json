@@ -8,6 +8,27 @@
     },
     {
       "path": "./libs/math"
+    },
+    {
+      "path": "./libs/params"
+    },
+    {
+      "path": "./libs/models"
+    },
+    {
+      "path": "./libs/policy"
+    },
+    {
+      "path": "./libs/core"
+    },
+    {
+      "path": "./libs/random"
+    },
+    {
+      "path": "./libs/telemetry"
+    },
+    {
+      "path": "./apps/sim-cli"
     }
   ]
 }
