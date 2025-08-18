@@ -7,6 +7,7 @@ This roadmap outlines a comprehensive plan to evolve the basketball simulation f
 ## Current State Assessment
 
 ### Strengths ✅
+
 - **Solid architecture**: Well-organized monorepo with clear separation of concerns
 - **Mathematical foundation**: Proper statistical modeling with z-scores, logistic functions
 - **Deterministic RNG**: Reproducible simulations with XORshift128+
@@ -14,6 +15,7 @@ This roadmap outlines a comprehensive plan to evolve the basketball simulation f
 - **Explainable AI**: All calculations return detailed breakdowns
 
 ### Critical Gaps ❌
+
 - **No defensive assignments**: Single defender used for all matchups
 - **Missing positioning**: No court coordinates or spacing mechanics
 - **Simplified rebounding**: Only 2-player contests
@@ -26,11 +28,12 @@ This roadmap outlines a comprehensive plan to evolve the basketball simulation f
 ### Priority: Critical | Complexity: Medium
 
 #### 1.1 Court Positioning System
+
 **Goal**: Add spatial awareness to the simulation
 
 ```typescript
 // New types in @basketball-sim/types
-type Position = { x: number; y: number };  // Court coordinates (0-94 x 0-50 feet)
+type Position = { x: number; y: number }; // Court coordinates (0-94 x 0-50 feet)
 type Formation = { players: Record<PlayerId, Position> };
 type DefensiveScheme = 'man' | 'zone2-3' | 'zone3-2' | 'zone1-3-1' | 'fullCourt';
 
@@ -44,6 +47,7 @@ type PossessionState = {
 ```
 
 **Implementation**:
+
 - [ ] Add position types to `@basketball-sim/types`
 - [ ] Create court geometry utilities in `@basketball-sim/math`
 - [ ] Update `PossessionEngine` to track positions
@@ -52,6 +56,7 @@ type PossessionState = {
 **Impact**: Enables realistic defensive assignments and spacing-dependent actions
 
 #### 1.2 Defensive Assignment System
+
 **Goal**: Assign specific defenders to offensive players
 
 ```typescript
@@ -63,12 +68,13 @@ type Assignment = {
 };
 
 class DefensiveCoordinator {
-  assignDefenders(offense: Team, defense: Team, scheme: DefensiveScheme): Assignment[]
-  getMatchup(offensivePlayer: PlayerId, assignments: Assignment[]): PlayerId
+  assignDefenders(offense: Team, defense: Team, scheme: DefensiveScheme): Assignment[];
+  getMatchup(offensivePlayer: PlayerId, assignments: Assignment[]): PlayerId;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create defensive coordinator in `@basketball-sim/core`
 - [ ] Add matchup resolution logic
 - [ ] Update all models to use specific defender ratings
@@ -77,15 +83,12 @@ class DefensiveCoordinator {
 **Impact**: Realistic individual matchups and team defense concepts
 
 #### 1.3 Dynamic EPV Calculation
+
 **Goal**: Replace hardcoded action values with real-time calculation
 
 ```typescript
 class EPVCalculator {
-  calculateActionEPV(
-    player: Player,
-    situation: GameSituation,
-    formation: Formation
-  ): Record<Action, number>
+  calculateActionEPV(player: Player, situation: GameSituation, formation: Formation): Record<Action, number>;
 }
 
 type GameSituation = {
@@ -98,6 +101,7 @@ type GameSituation = {
 ```
 
 **Implementation**:
+
 - [ ] Create EPV calculator in `@basketball-sim/models`
 - [ ] Add situational modifiers (shot clock, score, time)
 - [ ] Integrate formation-based advantages
@@ -110,6 +114,7 @@ type GameSituation = {
 ### Priority: High | Complexity: Medium-High
 
 #### 2.1 Multi-Player Rebounding
+
 **Goal**: Realistic rebounding competitions with all 10 players
 
 ```typescript
@@ -119,14 +124,15 @@ type ReboundContext = {
   players: Array<{
     id: PlayerId;
     position: Position;
-    boxOut: PlayerId | null;  // Who they're boxing out
+    boxOut: PlayerId | null; // Who they're boxing out
   }>;
 };
 
-function resolveReboundCompetition(context: ReboundContext): ReboundResult
+function resolveReboundCompetition(context: ReboundContext): ReboundResult;
 ```
 
 **Implementation**:
+
 - [ ] Create advanced rebound model in `@basketball-sim/models`
 - [ ] Add boxing out mechanics
 - [ ] Implement positioning advantages
@@ -135,6 +141,7 @@ function resolveReboundCompetition(context: ReboundContext): ReboundResult
 **Impact**: More realistic rebounding percentages and second-chance opportunities
 
 #### 2.2 Advanced Game Scenarios
+
 **Goal**: Handle special situations and game flow
 
 ```typescript
@@ -150,11 +157,12 @@ enum GameScenario {
 }
 
 class ScenarioEngine {
-  handleScenario(scenario: GameScenario, context: any): PossessionState
+  handleScenario(scenario: GameScenario, context: any): PossessionState;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create scenario engine in `@basketball-sim/core`
 - [ ] Add fast break detection and resolution
 - [ ] Implement timeout and substitution logic
@@ -164,6 +172,7 @@ class ScenarioEngine {
 **Impact**: Complete game simulation coverage
 
 #### 2.3 Enhanced Fouling System
+
 **Goal**: Comprehensive foul modeling with consequences
 
 ```typescript
@@ -186,6 +195,7 @@ type FoulResult = {
 ```
 
 **Implementation**:
+
 - [ ] Expand foul models in `@basketball-sim/models`
 - [ ] Add foul accumulation tracking
 - [ ] Implement bonus/double bonus situations
@@ -198,27 +208,29 @@ type FoulResult = {
 ### Priority: High | Complexity: Medium
 
 #### 3.1 High-Level Configuration API
+
 **Goal**: Easy tuning for non-mathematical users
 
 ```typescript
 class SimulationTuner {
   // Simple interfaces for complex adjustments
-  setShootingAccuracy(level: 'low' | 'medium' | 'high' | 'elite'): this
-  setDefensiveIntensity(intensity: number): this  // 0-100 scale
-  setPace(style: 'slow' | 'medium' | 'fast'): this
-  setFoulCalling(style: 'loose' | 'normal' | 'tight'): this
-  
+  setShootingAccuracy(level: 'low' | 'medium' | 'high' | 'elite'): this;
+  setDefensiveIntensity(intensity: number): this; // 0-100 scale
+  setPace(style: 'slow' | 'medium' | 'fast'): this;
+  setFoulCalling(style: 'loose' | 'normal' | 'tight'): this;
+
   // Preset configurations
-  useNBADefaults(): this
-  useCollegeSettings(): this
-  useEuroleagueSettings(): this
-  
+  useNBADefaults(): this;
+  useCollegeSettings(): this;
+  useEuroleagueSettings(): this;
+
   // Apply changes
-  build(): Params
+  build(): Params;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create tuner in `@basketball-sim/params`
 - [ ] Map simple settings to parameter changes
 - [ ] Add validation and bounds checking
@@ -227,23 +239,25 @@ class SimulationTuner {
 **Impact**: Accessible tuning for coaches, analysts, and game designers
 
 #### 3.2 Visual Debugging Tools
+
 **Goal**: Understanding simulation behavior without code diving
 
 ```typescript
 class SimulationDebugger {
-  generateShotChart(games: GameResult[]): ShotChart
-  analyzePossessionFlow(possession: PossessionState[]): FlowDiagram
-  trackPlayerFatigue(game: GameResult): FatigueChart
-  showParameterImpact(before: Params, after: Params): ImpactReport
+  generateShotChart(games: GameResult[]): ShotChart;
+  analyzePossessionFlow(possession: PossessionState[]): FlowDiagram;
+  trackPlayerFatigue(game: GameResult): FatigueChart;
+  showParameterImpact(before: Params, after: Params): ImpactReport;
 }
 
 type ShotChart = {
   zones: Array<{ x: number; y: number; attempts: number; makes: number }>;
-  heatmap: number[][];  // Shot frequency by court location
+  heatmap: number[][]; // Shot frequency by court location
 };
 ```
 
 **Implementation**:
+
 - [ ] Create debugger in `@basketball-sim/telemetry`
 - [ ] Add chart generation utilities
 - [ ] Create visualization data formats
@@ -252,29 +266,31 @@ type ShotChart = {
 **Impact**: Easier model validation and tuning
 
 #### 3.3 Scenario Builder
+
 **Goal**: Easy setup of specific game situations
 
 ```typescript
 class ScenarioBuilder {
   // Game situations
-  clutchTime(scoreDiff: number = 3): this  // Last 2 minutes
-  overtime(): this
-  playoffGame(): this
-  
+  clutchTime(scoreDiff: number = 3): this; // Last 2 minutes
+  overtime(): this;
+  playoffGame(): this;
+
   // Player states
-  playerInjured(playerId: PlayerId, severity: 'minor' | 'major'): this
-  playerHot(playerId: PlayerId, duration: number): this
-  playerCold(playerId: PlayerId, duration: number): this
-  
+  playerInjured(playerId: PlayerId, severity: 'minor' | 'major'): this;
+  playerHot(playerId: PlayerId, duration: number): this;
+  playerCold(playerId: PlayerId, duration: number): this;
+
   // Team states
-  fullCourtPress(): this
-  hackAShaq(targetPlayer: PlayerId): this
-  
-  build(): PossessionState
+  fullCourtPress(): this;
+  hackAShaq(targetPlayer: PlayerId): this;
+
+  build(): PossessionState;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create builder in `@basketball-sim/core`
 - [ ] Add situation templates
 - [ ] Implement state modifiers
@@ -287,23 +303,25 @@ class ScenarioBuilder {
 ### Priority: Medium | Complexity: High
 
 #### 4.1 Team Chemistry & Momentum
+
 **Goal**: Model psychological and team dynamics
 
 ```typescript
 type ChemistryFactor = {
   playersInvolved: PlayerId[];
-  modifier: number;  // -0.5 to +0.5
-  duration: number;  // Possessions
+  modifier: number; // -0.5 to +0.5
+  duration: number; // Possessions
   reason: 'hotStreak' | 'coldStreak' | 'teamPlay' | 'individual' | 'crowd';
 };
 
 class MomentumEngine {
-  calculateMomentum(recentEvents: Event[]): number
-  applyChemistryModifiers(baseProb: number, factors: ChemistryFactor[]): number
+  calculateMomentum(recentEvents: Event[]): number;
+  applyChemistryModifiers(baseProb: number, factors: ChemistryFactor[]): number;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create momentum engine in `@basketball-sim/models`
 - [ ] Add hot/cold streak detection
 - [ ] Implement team chemistry modifiers
@@ -312,22 +330,24 @@ class MomentumEngine {
 **Impact**: More realistic performance variance and momentum swings
 
 #### 4.2 Machine Learning Integration
+
 **Goal**: Learn from real NBA data
 
 ```typescript
 interface MLModel {
-  predictEPV(situation: GameSituation): Record<Action, number>
-  predictOutcome(action: Action, context: ActionContext): OutcomeProbability
-  updateFromResult(expected: number, actual: number): void
+  predictEPV(situation: GameSituation): Record<Action, number>;
+  predictOutcome(action: Action, context: ActionContext): OutcomeProbability;
+  updateFromResult(expected: number, actual: number): void;
 }
 
 class NBADataIntegration {
-  loadTrackingData(season: string): Promise<TrackingData[]>
-  calibrateModels(data: TrackingData[]): Promise<MLModel>
+  loadTrackingData(season: string): Promise<TrackingData[]>;
+  calibrateModels(data: TrackingData[]): Promise<MLModel>;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create ML interfaces in `@basketball-sim/models`
 - [ ] Add NBA tracking data integration
 - [ ] Implement online learning capabilities
@@ -336,15 +356,17 @@ class NBADataIntegration {
 **Impact**: Real-world accuracy and automatic model improvement
 
 #### 4.3 Advanced Player Modeling
+
 **Goal**: Detailed player behavior and development
 
 ```typescript
 type PlayerState = {
-  confidence: number;     // 0-100, affects performance
-  energy: number;        // 0-100, beyond basic fatigue
-  focus: number;         // 0-100, affects decision quality
-  health: number;        // 0-100, injury proneness
-  development: {         // Season-long progression
+  confidence: number; // 0-100, affects performance
+  energy: number; // 0-100, beyond basic fatigue
+  focus: number; // 0-100, affects decision quality
+  health: number; // 0-100, injury proneness
+  development: {
+    // Season-long progression
     gamesPlayed: number;
     experience: number;
     skillGrowth: Partial<Ratings>;
@@ -352,12 +374,13 @@ type PlayerState = {
 };
 
 class PlayerDevelopment {
-  updatePlayerState(player: Player, gameEvents: Event[]): PlayerState
-  simulateOffseasonGrowth(player: Player, training: TrainingPlan): Ratings
+  updatePlayerState(player: Player, gameEvents: Event[]): PlayerState;
+  simulateOffseasonGrowth(player: Player, training: TrainingPlan): Ratings;
 }
 ```
 
 **Implementation**:
+
 - [ ] Extend player model in `@basketball-sim/types`
 - [ ] Add psychological state tracking
 - [ ] Implement development curves
@@ -370,22 +393,24 @@ class PlayerDevelopment {
 ### Priority: Medium | Complexity: Medium
 
 #### 5.1 Performance Optimization
+
 **Goal**: Handle large-scale simulations efficiently
 
 ```typescript
 class SimulationOptimizer {
   // Batch processing
-  runParallelSims(configurations: SimConfig[], workers: number): Promise<Result[]>
-  
+  runParallelSims(configurations: SimConfig[], workers: number): Promise<Result[]>;
+
   // Memory management
-  streamResults(simulation: Simulation): AsyncIterator<PossessionResult>
-  
+  streamResults(simulation: Simulation): AsyncIterator<PossessionResult>;
+
   // Caching
-  cacheFrequentCalculations(models: ModelSet): CachedModelSet
+  cacheFrequentCalculations(models: ModelSet): CachedModelSet;
 }
 ```
 
 **Implementation**:
+
 - [ ] Add worker thread support
 - [ ] Implement result streaming
 - [ ] Create calculation caching
@@ -394,25 +419,27 @@ class SimulationOptimizer {
 **Impact**: Scale to thousands of games for statistical analysis
 
 #### 5.2 Event System Architecture
+
 **Goal**: Flexible plugin system for extensions
 
 ```typescript
 interface SimulationPlugin {
   name: string;
-  onPossessionStart?(state: PossessionState): void
-  onActionChosen?(action: Action, context: ActionContext): void
-  onOutcomeResolved?(outcome: Outcome): void
-  onPossessionEnd?(result: PossessionResult): void
+  onPossessionStart?(state: PossessionState): void;
+  onActionChosen?(action: Action, context: ActionContext): void;
+  onOutcomeResolved?(outcome: Outcome): void;
+  onPossessionEnd?(result: PossessionResult): void;
 }
 
 class PluginManager {
-  register(plugin: SimulationPlugin): void
-  unregister(pluginName: string): void
-  emit(event: string, data: any): void
+  register(plugin: SimulationPlugin): void;
+  unregister(pluginName: string): void;
+  emit(event: string, data: any): void;
 }
 ```
 
 **Implementation**:
+
 - [ ] Create plugin system in `@basketball-sim/core`
 - [ ] Add event emission throughout engine
 - [ ] Create plugin registry
@@ -421,13 +448,14 @@ class PluginManager {
 **Impact**: Extensible architecture for custom features
 
 #### 5.3 Configuration Validation
+
 **Goal**: Prevent invalid configurations and provide guidance
 
 ```typescript
 class ConfigValidator {
-  validate(params: Params): ValidationResult
-  suggestFixes(errors: ValidationError[]): ParamAdjustment[]
-  checkRealism(params: Params): RealismReport
+  validate(params: Params): ValidationResult;
+  suggestFixes(errors: ValidationError[]): ParamAdjustment[];
+  checkRealism(params: Params): RealismReport;
 }
 
 type ValidationResult = {
@@ -439,6 +467,7 @@ type ValidationResult = {
 ```
 
 **Implementation**:
+
 - [ ] Create validator in `@basketball-sim/params`
 - [ ] Add parameter range checking
 - [ ] Implement realism validation
@@ -449,30 +478,35 @@ type ValidationResult = {
 ## Implementation Timeline
 
 ### Month 1: Foundation
+
 - **Week 1**: Court positioning system
-- **Week 2**: Defensive assignments  
+- **Week 2**: Defensive assignments
 - **Week 3**: Dynamic EPV calculation
 - **Week 4**: Integration and testing
 
 ### Month 2: Advanced Mechanics
+
 - **Week 5**: Multi-player rebounding
 - **Week 6**: Game scenarios (fast breaks, timeouts)
 - **Week 7**: Enhanced fouling system
 - **Week 8**: Integration and testing
 
 ### Month 3: Developer Experience
+
 - **Week 9**: High-level configuration API
 - **Week 10**: Visual debugging tools
 - **Week 11**: Scenario builder
 - **Week 12**: Documentation and examples
 
 ### Month 4: Advanced Features
+
 - **Week 13**: Team chemistry and momentum
 - **Week 14**: ML integration foundation
 - **Week 15**: Advanced player modeling
 - **Week 16**: Integration and testing
 
 ### Month 5: Production Ready
+
 - **Week 17**: Performance optimization
 - **Week 18**: Event system and plugins
 - **Week 19**: Configuration validation
@@ -481,18 +515,21 @@ type ValidationResult = {
 ## Success Metrics
 
 ### Technical Metrics
+
 - **Performance**: 10,000+ possessions per second
 - **Accuracy**: 95%+ model calibration
 - **Coverage**: 100% NBA scenario support
 - **Reliability**: 99.9%+ uptime for long simulations
 
 ### User Experience Metrics
+
 - **Setup Time**: < 5 minutes for basic simulation
 - **Tuning Time**: < 30 minutes to adjust team styles
 - **Debug Time**: < 10 minutes to identify issues
 - **Learning Curve**: Non-technical users productive in < 2 hours
 
 ### Basketball Realism Metrics
+
 - **EFG%**: 44-48% (NBA baseline)
 - **Pace**: 65-75 possessions/game
 - **Turnover Rate**: 13-19%
@@ -502,16 +539,19 @@ type ValidationResult = {
 ## Risk Mitigation
 
 ### Technical Risks
+
 - **Performance degradation**: Implement benchmarking at each phase
 - **Model accuracy loss**: Maintain validation suite throughout
 - **Breaking changes**: Use semantic versioning and migration guides
 
 ### Timeline Risks
+
 - **Scope creep**: Stick to defined phases, track separately
 - **Complexity underestimation**: Add 20% buffer to estimates
 - **Resource constraints**: Prioritize core features over nice-to-haves
 
 ### Quality Risks
+
 - **Regression introduction**: Comprehensive test suite for each phase
 - **User adoption**: Regular feedback sessions with target users
 - **Documentation debt**: Write docs alongside implementation

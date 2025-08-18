@@ -1,7 +1,7 @@
-import { PossessionEngine } from '@basketball-sim/core';
+import { PossessionEngine, PositionalPossessionEngine } from '@basketball-sim/core';
 import { Team, PossessionState } from '@basketball-sim/types';
 
-function dummyTeam(id: string, seed = 1): Team {
+function dummyTeam(id: string): Team {
   const mk = (i: number) => ({
     id: `p${id}${i}`,
     name: `P${id}${i}`,
@@ -45,7 +45,8 @@ function dummyTeam(id: string, seed = 1): Team {
   return { id, name: `Team ${id}`, players: [mk(1), mk(2), mk(3), mk(4), mk(5)] };
 }
 
-async function main() {
+async function runBasicEngine() {
+  console.log('=== BASIC ENGINE (Original) ===');
   const engine = new PossessionEngine();
   const A = dummyTeam('A');
   const B = dummyTeam('B');
@@ -55,15 +56,15 @@ async function main() {
     offense: A.id,
     defense: B.id,
     ball: A.players[0].id,
-    clock: { quarter: 1, sec: 2880 }, // 48 minutes = 2880 seconds
+    clock: { quarter: 1, sec: 2880 },
     shotClock: 24,
     fatigue: {},
     score: { off: 0, def: 0 },
     seed: 12345
   };
+
   let possCount = 0;
   while (state.clock.sec > 0 && possCount < 100) {
-    // Determine which team has possession
     const offTeam = state.offense === A.id ? A : B;
     const defTeam = state.offense === A.id ? B : A;
 
@@ -72,14 +73,87 @@ async function main() {
     state.poss++;
     possCount++;
 
-    // Debug: log when score changes
     if (state.score.off !== prevScore.off || state.score.def !== prevScore.def) {
       console.log(
-        `Possession ${possCount}: Score changed from ${prevScore.off}-${prevScore.def} to ${state.score.off}-${state.score.def}`
+        `Possession ${possCount}: Score ${prevScore.off}-${prevScore.def} → ${state.score.off}-${state.score.def}`
       );
     }
   }
-  console.log(`Possessions: ${possCount}, Score (view-of-offense): ${state.score.off}-${state.score.def}`);
+  console.log(`Final: ${possCount} possessions, Score: ${state.score.off}-${state.score.def}\n`);
+}
+
+async function runPositionalEngine() {
+  console.log('=== POSITIONAL ENGINE (New with Court Positioning) ===');
+  const engine = new PositionalPossessionEngine();
+  const A = dummyTeam('A');
+  const B = dummyTeam('B');
+  let state: PossessionState = {
+    gameId: 'G2',
+    poss: 1,
+    offense: A.id,
+    defense: B.id,
+    ball: A.players[0].id,
+    clock: { quarter: 1, sec: 2880 },
+    shotClock: 24,
+    fatigue: {},
+    score: { off: 0, def: 0 },
+    seed: 12345
+  };
+
+  let possCount = 0;
+  while (state.clock.sec > 0 && possCount < 100) {
+    const offTeam = state.offense === A.id ? A : B;
+    const defTeam = state.offense === A.id ? B : A;
+
+    const prevScore = { ...state.score };
+    // Use man-to-man defense as default
+    const positionalState = engine.run(offTeam, defTeam, state, 'man');
+
+    // Extract basic state for next iteration
+    state = {
+      gameId: positionalState.gameId,
+      poss: positionalState.poss,
+      offense: positionalState.offense,
+      defense: positionalState.defense,
+      ball: positionalState.ball,
+      clock: positionalState.clock,
+      shotClock: positionalState.shotClock,
+      fatigue: positionalState.fatigue,
+      score: positionalState.score,
+      seed: positionalState.seed
+    };
+
+    state.poss++;
+    possCount++;
+
+    if (state.score.off !== prevScore.off || state.score.def !== prevScore.def) {
+      console.log(
+        `Possession ${possCount}: Score ${prevScore.off}-${prevScore.def} → ${state.score.off}-${state.score.def}`
+      );
+      console.log(
+        `  Spacing: lanes=${positionalState.spacing.openLanes.toFixed(
+          2
+        )}, quality=${positionalState.spacing.shotQuality.toFixed(2)}`
+      );
+    }
+  }
+  console.log(`Final: ${possCount} possessions, Score: ${state.score.off}-${state.score.def}\n`);
+}
+
+async function main() {
+  console.log('🏀 Basketball Simulation - Phase 1.1 Demo: Court Positioning System\n');
+
+  // Run both engines to compare
+  await runBasicEngine();
+  await runPositionalEngine();
+
+  console.log('✅ Phase 1.1 Complete: Court positioning system implemented!');
+  console.log('📍 Features added:');
+  console.log('  • Court coordinates and spatial awareness');
+  console.log('  • Defensive assignments and schemes');
+  console.log('  • Dynamic EPV calculation based on position');
+  console.log('  • Spacing and shot quality metrics');
+  console.log('  • Formation management');
 }
 
 main().catch(e => {

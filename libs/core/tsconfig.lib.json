@@ -18,13 +18,16 @@
       "path": "../models/tsconfig.lib.json"
     },
     {
-      "path": "../types/tsconfig.lib.json"
-    },
-    {
       "path": "../policy/tsconfig.lib.json"
     },
     {
       "path": "../random/tsconfig.lib.json"
+    },
+    {
+      "path": "../math/tsconfig.lib.json"
+    },
+    {
+      "path": "../types/tsconfig.lib.json"
     }
   ]
 }

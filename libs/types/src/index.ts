@@ -45,3 +45,71 @@ export const Action = {
 };
 export type Action = typeof Action[keyof typeof Action];
 
+// Court positioning system
+export type Position = { 
+  x: number;  // 0-94 feet (court length)
+  y: number;  // 0-50 feet (court width)
+};
+
+export type Zone = {
+  name: string;
+  bounds: {
+    minX: number;
+    maxX: number; 
+    minY: number;
+    maxY: number;
+  };
+};
+
+export type Formation = {
+  players: Record<Id, Position>;
+  ballPosition: Position;
+  timestamp: number;  // For tracking movement
+};
+
+export type DefensiveScheme = 
+  | 'man'         // Man-to-man defense
+  | 'zone2-3'     // 2-3 zone defense
+  | 'zone3-2'     // 3-2 zone defense  
+  | 'zone1-3-1'   // 1-3-1 zone defense
+  | 'fullCourt'   // Full court press
+  | 'switch';     // Switching defense
+
+export type Assignment = {
+  defender: Id;
+  target: Id | Zone;  // Player ID or zone to defend
+  type: 'man' | 'zone' | 'help';
+  priority: number;   // 1-10, higher = more important
+};
+
+export type DefensiveAssignments = {
+  scheme: DefensiveScheme;
+  assignments: Assignment[];
+  helpRotations: Record<Id, Id>;  // Who rotates to help whom
+};
+
+// Enhanced possession state with positioning
+export type PositionalPossessionState = PossessionState & {
+  formation: Formation;
+  defensiveAssignments: DefensiveAssignments;
+  spacing: {
+    openLanes: number;      // 0-1, how open driving lanes are
+    ballMovement: number;   // 0-1, how much ball has moved
+    shotQuality: number;    // 0-1, current shot opportunity quality
+  };
+};
+
+// Game situation context for EPV calculation
+export type GameSituation = {
+  shotClock: number;
+  gameTime: number;    // Seconds remaining in game
+  scoreDiff: number;   // Positive = leading, negative = trailing
+  quarter: number;
+  fouls: {
+    team: number;      // Team fouls this quarter
+    player: Record<Id, number>;  // Individual player fouls
+    inBonus: boolean;  // Team in bonus/penalty situation
+  };
+  momentum: number;    // -1 to 1, team momentum
+};
+
