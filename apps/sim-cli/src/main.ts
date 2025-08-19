@@ -1,6 +1,6 @@
 import { PositionalPossessionEngine } from '@basketball-sim/core';
 import { Team, PossessionState, Player } from '@basketball-sim/types';
-import { initializeGameStats, finalizeGameStats } from '@basketball-sim/models';
+import { initializeGameStats, finalizeGameStats, updateMinutesPlayed, RotationManager } from '@basketball-sim/models';
 
 // Player archetypes with different skill distributions
 type PlayerArchetype = 'star' | 'starter' | 'roleplayer' | 'bench' | 'deep-bench';
@@ -233,56 +233,84 @@ function displayTeamInfo(team: Team): void {
   });
 }
 
-function displayGameResults(homeTeam: Team, awayTeam: Team, finalScore: { home: number; away: number }, gameStats: any): void {
-  console.log('\n' + '═'.repeat(80));
+function displayFullBoxScore(homeTeam: Team, awayTeam: Team, finalScore: { home: number; away: number }, gameStats: any): void {
+  console.log('\n' + '═'.repeat(120));
   console.log('🏆 FINAL RESULTS');
-  console.log('═'.repeat(80));
+  console.log('═'.repeat(120));
   
-  // Game result table
+  // Game result summary
   const homeWon = finalScore.home > finalScore.away;
   const margin = Math.abs(finalScore.home - finalScore.away);
   
-  console.log(`\n┌─────────────────────┬─────────┬─────────┬─────────────┐`);
-  console.log(`│ Team                │  Score  │   OVR   │   Result    │`);
-  console.log(`├─────────────────────┼─────────┼─────────┼─────────────┤`);
-  console.log(`│ ${homeTeam.name.padEnd(19)} │ ${String(finalScore.home).padStart(7)} │ ${String(calculateTeamOverall(homeTeam)).padStart(7)} │ ${(homeWon ? `W +${margin}` : `L -${margin}`).padEnd(11)} │`);
-  console.log(`│ ${awayTeam.name.padEnd(19)} │ ${String(finalScore.away).padStart(7)} │ ${String(calculateTeamOverall(awayTeam)).padStart(7)} │ ${(!homeWon ? `W +${margin}` : `L -${margin}`).padEnd(11)} │`);
-  console.log(`└─────────────────────┴─────────┴─────────┴─────────────┘`);
+  console.log(`\n📊 GAME SUMMARY:`);
+  console.log(`${homeTeam.name} ${finalScore.home} - ${finalScore.away} ${awayTeam.name} ${homeWon ? '(W)' : '(L)'} by ${margin}`);
+  console.log(`Game Length: ${gameStats.gameLength.toFixed(1)} minutes`);
   
-  // Top scorers from each team
-  console.log(`\n🏀 TOP SCORERS:`);
-  const homeTopScorers = Object.values(gameStats.homeTeam.players)
-    .filter((p: any) => p.points > 0)
-    .sort((a: any, b: any) => b.points - a.points)
-    .slice(0, 3);
-  const awayTopScorers = Object.values(gameStats.awayTeam.players)
-    .filter((p: any) => p.points > 0)
-    .sort((a: any, b: any) => b.points - a.points)
-    .slice(0, 3);
+  // Full box score for home team
+  displayTeamBoxScore(homeTeam, gameStats.homeTeam, 'HOME');
   
-  console.log(`\n┌─────────────────────┬─────────┬───────┬───────┐`);
-  console.log(`│ ${homeTeam.name.padEnd(19)} │  Points │  FGM  │  FGA  │`);
-  console.log(`├─────────────────────┼─────────┼───────┼───────┤`);
-  homeTopScorers.forEach((p: any) => {
-    const playerName = homeTeam.players.find(player => player.id === p.playerId)?.name || p.playerId;
-    console.log(`│ ${playerName.padEnd(19)} │ ${String(p.points).padStart(7)} │ ${String(p.fieldGoalsMade).padStart(5)} │ ${String(p.fieldGoalsAttempted).padStart(5)} │`);
+  // Full box score for away team  
+  displayTeamBoxScore(awayTeam, gameStats.awayTeam, 'AWAY');
+  
+  // Team totals
+  console.log(`\n📈 TEAM STATS:`);
+  console.log(`┌─────────────────────┬─────────┬─────────┬─────────┬─────────┬─────────┐`);
+  console.log(`│ Team                │  Points │   FG%   │  3P%    │   FT%   │   REB   │`);
+  console.log(`├─────────────────────┼─────────┼─────────┼─────────┼─────────┼─────────┤`);
+  
+  const homeFGP = gameStats.homeTeam.teamTotals.fieldGoalsAttempted > 0 ? 
+    (gameStats.homeTeam.teamTotals.fieldGoalsMade / gameStats.homeTeam.teamTotals.fieldGoalsAttempted * 100).toFixed(1) : '0.0';
+  const home3PP = gameStats.homeTeam.teamTotals.threePointersAttempted > 0 ? 
+    (gameStats.homeTeam.teamTotals.threePointersMade / gameStats.homeTeam.teamTotals.threePointersAttempted * 100).toFixed(1) : '0.0';
+  const homeFTP = gameStats.homeTeam.teamTotals.freeThrowsAttempted > 0 ? 
+    (gameStats.homeTeam.teamTotals.freeThrowsMade / gameStats.homeTeam.teamTotals.freeThrowsAttempted * 100).toFixed(1) : '0.0';
+  
+  const awayFGP = gameStats.awayTeam.teamTotals.fieldGoalsAttempted > 0 ? 
+    (gameStats.awayTeam.teamTotals.fieldGoalsMade / gameStats.awayTeam.teamTotals.fieldGoalsAttempted * 100).toFixed(1) : '0.0';
+  const away3PP = gameStats.awayTeam.teamTotals.threePointersAttempted > 0 ? 
+    (gameStats.awayTeam.teamTotals.threePointersMade / gameStats.awayTeam.teamTotals.threePointersAttempted * 100).toFixed(1) : '0.0';
+  const awayFTP = gameStats.awayTeam.teamTotals.freeThrowsAttempted > 0 ? 
+    (gameStats.awayTeam.teamTotals.freeThrowsMade / gameStats.awayTeam.teamTotals.freeThrowsAttempted * 100).toFixed(1) : '0.0';
+  
+  console.log(`│ ${homeTeam.name.padEnd(19)} │ ${String(gameStats.homeTeam.teamTotals.points).padStart(7)} │ ${homeFGP.padStart(7)}% │ ${home3PP.padStart(6)}% │ ${homeFTP.padStart(6)}% │ ${String(gameStats.homeTeam.teamTotals.totalRebounds).padStart(7)} │`);
+  console.log(`│ ${awayTeam.name.padEnd(19)} │ ${String(gameStats.awayTeam.teamTotals.points).padStart(7)} │ ${awayFGP.padStart(7)}% │ ${away3PP.padStart(6)}% │ ${awayFTP.padStart(6)}% │ ${String(gameStats.awayTeam.teamTotals.totalRebounds).padStart(7)} │`);
+  console.log(`└─────────────────────┴─────────┴─────────┴─────────┴─────────┴─────────┘`);
+}
+
+function displayTeamBoxScore(team: Team, teamStats: any, label: string): void {
+  const playersWithStats = Object.values(teamStats.players)
+    .filter((p: any) => p.minutes > 0)
+    .sort((a: any, b: any) => b.minutes - a.minutes);
+  
+  console.log(`\n🏀 ${label} - ${team.name.toUpperCase()} BOX SCORE:`);
+  console.log(`┌──────────────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┬─────┐`);
+  console.log(`│ Player       │ MIN │ PTS │ FGM │ FGA │ 3PM │ 3PA │ FTM │ FTA │ REB │ AST │`);
+  console.log(`├──────────────┼─────┼─────┼─────┼─────┼─────┼─────┼─────┼─────┼─────┼─────┤`);
+  
+  playersWithStats.forEach((p: any) => {
+    const playerName = team.players.find(player => player.id === p.playerId)?.name || p.playerId;
+    const minutes = p.minutes.toFixed(1);
+    
+    console.log(`│ ${playerName.padEnd(12)} │ ${minutes.padStart(3)} │ ${String(p.points).padStart(3)} │ ${String(p.fieldGoalsMade).padStart(3)} │ ${String(p.fieldGoalsAttempted).padStart(3)} │ ${String(p.threePointersMade).padStart(3)} │ ${String(p.threePointersAttempted).padStart(3)} │ ${String(p.freeThrowsMade).padStart(3)} │ ${String(p.freeThrowsAttempted).padStart(3)} │ ${String(p.totalRebounds).padStart(3)} │ ${String(p.assists).padStart(3)} │`);
   });
-  console.log(`└─────────────────────┴─────────┴───────┴───────┘`);
   
-  console.log(`\n┌─────────────────────┬─────────┬───────┬───────┐`);
-  console.log(`│ ${awayTeam.name.padEnd(19)} │  Points │  FGM  │  FGA  │`);
-  console.log(`├─────────────────────┼─────────┼───────┼───────┤`);
-  awayTopScorers.forEach((p: any) => {
-    const playerName = awayTeam.players.find(player => player.id === p.playerId)?.name || p.playerId;
-    console.log(`│ ${playerName.padEnd(19)} │ ${String(p.points).padStart(7)} │ ${String(p.fieldGoalsMade).padStart(5)} │ ${String(p.fieldGoalsAttempted).padStart(5)} │`);
-  });
-  console.log(`└─────────────────────┴─────────┴───────┴───────┘`);
+  console.log(`└──────────────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┴─────┘`);
+  
+  // Show bench players (didn't play)
+  const benchPlayers = team.players.filter(player => 
+    !teamStats.players[player.id] || teamStats.players[player.id].minutes === 0
+  );
+  
+  if (benchPlayers.length > 0) {
+    console.log(`💺 Did not play: ${benchPlayers.map(p => p.name).join(', ')}`);
+  }
 }
 
 async function runEnhancedSimulation() {
   console.log('=== 🏀 ENHANCED BASKETBALL SIMULATION ===\n');
   
   const engine = new PositionalPossessionEngine();
+  const rotationManager = new RotationManager();
   
   // Generate realistic teams with varying skill levels
   const homeTeam = generateRealisticTeam('HOME', 'Lakers', 12345);
@@ -295,12 +323,16 @@ async function runEnhancedSimulation() {
   console.log(`\n🏀 Starting game: ${homeTeam.name} vs ${awayTeam.name}`);
   console.log('─'.repeat(50));
 
+  // Initialize lineups with starting 5
+  let homeLineup = rotationManager.getStartingLineup(homeTeam);
+  let awayLineup = rotationManager.getStartingLineup(awayTeam);
+  
   let state: PossessionState = {
     gameId: 'GAME-001',
     poss: 1,
     offense: homeTeam.id,
     defense: awayTeam.id,
-    ball: homeTeam.players[0].id, // Start with first player
+    ball: homeLineup[0].id, // Start with first starter
     clock: { quarter: 1, sec: 2880 },
     shotClock: 24,
     fatigue: {},
@@ -313,18 +345,66 @@ async function runEnhancedSimulation() {
 
   let possCount = 0;
   let scoringPlays = 0;
+  let subsCount = 0;
   
   while (state.clock.sec > 0 && possCount < 100) {
     const offTeam = state.offense === homeTeam.id ? homeTeam : awayTeam;
     const defTeam = state.offense === homeTeam.id ? awayTeam : homeTeam;
     const isHomeOnOffense = state.offense === homeTeam.id;
+    const currentLineup = isHomeOnOffense ? homeLineup : awayLineup;
 
     const prevScore = { ...state.score };
+    const gameTimeElapsed = (2880 - state.clock.sec) / 60; // Minutes elapsed
+    const possessionDuration = 0.5; // Each possession = ~30 seconds = 0.5 minutes
     
-    // Randomly distribute ball among the starting 5 players for variety
-    const startingFive = offTeam.players.slice(0, 5);
-    const randomPlayer = startingFive[Math.floor(Math.random() * startingFive.length)];
+    // Check for substitutions every few possessions
+    if (possCount % 3 === 0) {
+      const lineup = isHomeOnOffense ? homeLineup : awayLineup;
+      const team = isHomeOnOffense ? homeTeam : awayTeam;
+      const teamStats = isHomeOnOffense ? gameStats.homeTeam : gameStats.awayTeam;
+      
+      for (let i = 0; i < lineup.length; i++) {
+        const player = lineup[i];
+        const playerStats = teamStats.players[player.id];
+        const fatigue = state.fatigue[player.id] || 0;
+        const scoreDiff = isHomeOnOffense ? 
+          (state.score.off - state.score.def) : 
+          (state.score.def - state.score.off);
+        
+        if (rotationManager.shouldSubstitute(player, fatigue, playerStats.minutes, gameTimeElapsed, scoreDiff)) {
+          const substitute = rotationManager.getSubstitute(team, player, lineup, 
+            Object.fromEntries(Object.values(teamStats.players).map(p => [p.playerId, p.minutes])), gameTimeElapsed);
+          
+          if (substitute) {
+            lineup[i] = substitute;
+            subsCount++;
+            console.log(`🔄 SUB: ${substitute.name} in for ${player.name} (${gameTimeElapsed.toFixed(1)}min)`);
+            
+            // Reset fatigue for new player
+            state.fatigue[substitute.id] = 0;
+            
+            // Update ball handler if they were subbed out
+            if (state.ball === player.id) {
+              state.ball = substitute.id;
+            }
+          }
+        }
+      }
+      
+      // Update the main lineup variables
+      if (isHomeOnOffense) {
+        homeLineup = lineup;
+      } else {
+        awayLineup = lineup;
+      }
+    }
+    
+    // Randomly distribute ball among current lineup for variety
+    const randomPlayer = currentLineup[Math.floor(Math.random() * currentLineup.length)];
     state.ball = randomPlayer.id;
+    
+    // Update minutes for all active players
+    updateMinutesPlayed(gameStats, homeLineup, awayLineup, possessionDuration);
     
     // Run the enhanced engine with stats tracking
     const result = engine.run(offTeam, defTeam, state, 'man', gameStats);
@@ -350,9 +430,17 @@ async function runEnhancedSimulation() {
     if (possCount % 25 === 0) {
       const homeScore = state.offense === homeTeam.id ? state.score.off : state.score.def;
       const awayScore = state.offense === homeTeam.id ? state.score.def : state.score.off;
-      console.log(`⏱️  ${possCount} poss complete - ${homeTeam.name} ${homeScore}, ${awayTeam.name} ${awayScore}`);
+      const playersUsedHome = Object.values(gameStats.homeTeam.players).filter(p => p.minutes > 0).length;
+      const playersUsedAway = Object.values(gameStats.awayTeam.players).filter(p => p.minutes > 0).length;
+      console.log(`⏱️  ${possCount} poss complete - ${homeTeam.name} ${homeScore}, ${awayTeam.name} ${awayScore} | Players used: ${playersUsedHome}+${playersUsedAway} | Subs: ${subsCount}`);
     }
   }
+  
+  console.log(`\n📊 Final Rotation Summary:`);
+  const playersUsedHome = Object.values(gameStats.homeTeam.players).filter(p => p.minutes > 0).length;
+  const playersUsedAway = Object.values(gameStats.awayTeam.players).filter(p => p.minutes > 0).length;
+  console.log(`Total substitutions: ${subsCount}`);
+  console.log(`Players used: ${homeTeam.name} (${playersUsedHome}), ${awayTeam.name} (${playersUsedAway})`);
 
   // Finalize game stats
   const gameTimeMinutes = (2880 - state.clock.sec) / 60;
@@ -362,7 +450,7 @@ async function runEnhancedSimulation() {
   const finalAwayScore = state.offense === homeTeam.id ? state.score.def : state.score.off;
 
   // Display beautiful results table
-  displayGameResults(homeTeam, awayTeam, { home: finalHomeScore, away: finalAwayScore }, gameStats);
+  displayFullBoxScore(homeTeam, awayTeam, { home: finalHomeScore, away: finalAwayScore }, gameStats);
 }
 
 async function main() {
@@ -382,6 +470,10 @@ async function main() {
   console.log('  • Play-by-play tracking with detailed outcomes');
   console.log('  • Shooting charts by zone (rim/mid/three)');
   console.log('  • Advanced efficiency metrics (TS%, eFG%)');
+  console.log('  • Dynamic player rotations and substitutions');
+  console.log('  • Minutes tracking and fatigue management');
+  console.log('  • Realistic shooting percentages (45-55%)');
+  console.log('  • Full box score with all player stats');
 }
 
 main().catch(e => {

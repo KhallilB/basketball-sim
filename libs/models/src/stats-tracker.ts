@@ -5,7 +5,8 @@ import type {
   PlayOutcome,
   Action,
   Id,
-  Team
+  Team,
+  Player
 } from '@basketball-sim/types';
 import { getShotZone } from '@basketball-sim/math';
 
@@ -266,6 +267,32 @@ function updateShootingEfficiency(stats: PlayerStats): void {
 export function updatePossessions(gameStats: GameStats, isHomeTeam: boolean): void {
   const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
   teamStats.possessions++;
+}
+
+/**
+ * Update minutes played for active players
+ */
+export function updateMinutesPlayed(
+  gameStats: GameStats,
+  homeLineup: Player[],
+  awayLineup: Player[],
+  possessionDuration: number
+): void {
+  // Update home team minutes
+  for (const player of homeLineup) {
+    const playerStats = gameStats.homeTeam.players[player.id];
+    if (playerStats) {
+      playerStats.minutes += possessionDuration;
+    }
+  }
+  
+  // Update away team minutes
+  for (const player of awayLineup) {
+    const playerStats = gameStats.awayTeam.players[player.id];
+    if (playerStats) {
+      playerStats.minutes += possessionDuration;
+    }
+  }
 }
 
 /**

@@ -1,6 +1,6 @@
 export const PARAMS = {
   shot: {
-    beta: { base: 1.0, Q: 0.7, contest: -0.9, fatigue: -0.35, clutch: 0.2, noise: 0.4, rel: 0.12 }
+    beta: { base: -0.8, Q: 0.5, contest: -1.2, fatigue: -0.5, clutch: 0.15, noise: 0.6, rel: 0.1 }
   },
   pass: { base: 1.0, laneRisk: -0.8, pressure: -0.5, iq: 0.3 },
   drive: { base: -0.2, speed: 0.9, handle: 0.6, lane: 0.5, angle: 0.4, defLat: -0.9, defOnBall: -0.6 },

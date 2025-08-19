@@ -5,3 +5,4 @@ export * from './foul.js';
 export * from './shot.js';
 export * from './advanced-rebound.js';
 export * from './stats-tracker.js';
+export * from './rotation-manager.js';
