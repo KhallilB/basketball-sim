@@ -1,6 +1,25 @@
+// RTTB Core Math Functions
+// Note: Removed CONFIG dependency to break circular dependency
+// Math functions now use local constants or accept parameters
+
 export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
-export const z = (r: number) => (r - 50) / 12;
-export const logistic = (s: number) => 1 / (1 + Math.exp(-s));
+
+// Rating to z-score conversion with local constants
+export const ratingZ = (r: number, mean = 50, stdDev = 12) => {
+  const validated = clamp(r, 25, 99);
+  return (validated - mean) / stdDev;
+};
+
+// Legacy alias for compatibility
+export const z = ratingZ;
+
+// Probability from score (logistic function)
+export const chance = (s: number) => 1 / (1 + Math.exp(-s));
+
+// Legacy alias for compatibility
+export const logistic = chance;
+
+// Softmax for action selection with temperature
 export function softmax(xs: number[], T = 1) {
   const m = Math.max(...xs);
   const ex = xs.map(v => Math.exp((v - m) / T));
@@ -8,22 +27,122 @@ export function softmax(xs: number[], T = 1) {
   return ex.map(v => v / s);
 }
 
-// Court geometry utilities
-import type { Position } from '@basketball-sim/types';
+// Dirichlet distribution utilities
+export function dirichletMean(alphas: number[]): number[] {
+  const sum = alphas.reduce((a, b) => a + b, 0);
+  return alphas.map(alpha => alpha / sum);
+}
 
-// NBA court dimensions (in feet)
+// Convert Dirichlet mean to logit bias
+export function meanToLogitBias(mean: number): number {
+  const clamped = clamp(mean, 0.02, 0.98);
+  return Math.log(clamped / (1 - clamped));
+}
+
+// Beta distribution utilities
+export function betaMean(a: number, b: number): number {
+  return a / (a + b);
+}
+
+// Update Dirichlet counts with decay
+export function updateDirichlet(alphas: number[], actionIndex: number, decay = 0.95): number[] {
+  const updated = alphas.map(alpha => decay * alpha);
+  updated[actionIndex] += 1;
+  return updated;
+}
+
+// Update Beta counts with decay
+export function updateBeta(a: number, b: number, success: boolean, decay = 0.95): { a: number; b: number } {
+  return {
+    a: decay * a + (success ? 1 : 0),
+    b: decay * b + (success ? 0 : 1)
+  };
+}
+
+// Consistency noise scaling
+export function consistencyNoise(consistency: number, baseNoise = 0.1): number {
+  const validatedConsistency = clamp(consistency, 0, 100);
+  const scale = (1 - validatedConsistency / 100) * 2;
+  return (Math.random() * 2 - 1) * baseNoise * scale;
+}
+
+// Court geometry utilities
+import type { Position, TendencyDistributions, Tendencies } from '@basketball-sim/types';
+
+// RTTB Tendency Distribution Utilities
+export function initializeTendencyDistributions(tendencies: Tendencies): TendencyDistributions {
+  // Convert slider values to Dirichlet alphas (add base to prevent zeros)
+  const dirichletBase = 0.1;
+  const withBallAlphas = tendencies.withBall.map(t => t + dirichletBase);
+  const offBallAlphas = tendencies.offBall.map(t => t + dirichletBase);
+  const shotZoneAlphas = tendencies.shotZone.map(t => t + dirichletBase);
+  const threeStyleAlphas = tendencies.threeStyle.map(t => t + dirichletBase);
+  
+  // Convert binary sliders to Beta parameters
+  const betaMultiplier = 10;
+  const passRiskA = (tendencies.passRisk / 100) * betaMultiplier + 1;
+  const passRiskB = (1 - tendencies.passRisk / 100) * betaMultiplier + 1;
+  
+  const helpA = (tendencies.help / 100) * betaMultiplier + 1;
+  const helpB = (1 - tendencies.help / 100) * betaMultiplier + 1;
+  
+  const gambleStealA = (tendencies.gambleSteal / 100) * betaMultiplier + 1;
+  const gambleStealB = (1 - tendencies.gambleSteal / 100) * betaMultiplier + 1;
+  
+  const crashOrebA = (tendencies.crashOreb / 100) * betaMultiplier + 1;
+  const crashOrebB = (1 - tendencies.crashOreb / 100) * betaMultiplier + 1;
+  
+  return {
+    withBall: {
+      alphas: withBallAlphas,
+      mean: dirichletMean(withBallAlphas)
+    },
+    offBall: {
+      alphas: offBallAlphas,
+      mean: dirichletMean(offBallAlphas)
+    },
+    shotZone: {
+      alphas: shotZoneAlphas,
+      mean: dirichletMean(shotZoneAlphas)
+    },
+    threeStyle: {
+      alphas: threeStyleAlphas,
+      mean: dirichletMean(threeStyleAlphas)
+    },
+    passRisk: {
+      a: passRiskA,
+      b: passRiskB,
+      mean: betaMean(passRiskA, passRiskB)
+    },
+    help: {
+      a: helpA,
+      b: helpB,
+      mean: betaMean(helpA, helpB)
+    },
+    gambleSteal: {
+      a: gambleStealA,
+      b: gambleStealB,
+      mean: betaMean(gambleStealA, gambleStealB)
+    },
+    crashOreb: {
+      a: crashOrebA,
+      b: crashOrebB,
+      mean: betaMean(crashOrebA, crashOrebB)
+    }
+  };
+}
+
+// NBA court dimensions (local constants)
 export const COURT = {
   LENGTH: 94,
   WIDTH: 50,
-  THREE_POINT_LINE: 23.75, // Distance from center of basket
-  FREE_THROW_LINE: 15, // Distance from backboard
-  PAINT_WIDTH: 16, // Width of paint/lane
-  BASKET_HEIGHT: 10, // Height of rim
   BASKETS: {
-    HOME: { x: 5.25, y: 25 }, // Home basket position
-    AWAY: { x: 88.75, y: 25 } // Away basket position
-  }
-} as const;
+    HOME: { x: 5.25, y: 25 },
+    AWAY: { x: 88.75, y: 25 }
+  },
+  THREE_POINT_LINE: 23.75,
+  CORNER_THREE: 22
+};
 
 // Predefined court zones
 export const ZONES = {
@@ -41,8 +160,10 @@ export const ZONES = {
  * Calculate distance between two positions
  */
 export function distance(p1: Position, p2: Position): number {
-  const dx = p2.x - p1.x;
-  const dy = p2.y - p1.y;
+  const validP1 = { x: clamp(p1.x, 0, 94), y: clamp(p1.y, 0, 50) };
+  const validP2 = { x: clamp(p2.x, 0, 94), y: clamp(p2.y, 0, 50) };
+  const dx = validP2.x - validP1.x;
+  const dy = validP2.y - validP1.y;
   return Math.sqrt(dx * dx + dy * dy);
 }
 
@@ -58,12 +179,13 @@ export function distanceToBasket(pos: Position, isOffense: boolean): number {
  * Check if position is within three-point line
  */
 export function isInsideThreePoint(pos: Position, isOffense: boolean): boolean {
+  const validPos = { x: clamp(pos.x, 0, 94), y: clamp(pos.y, 0, 50) };
   const basket = isOffense ? COURT.BASKETS.HOME : COURT.BASKETS.AWAY;
-  const dist = distance(pos, basket);
+  const dist = distance(validPos, basket);
 
   // Special handling for corners (shorter three-point line)
-  if (pos.y <= 14 || pos.y >= 36) {
-    return dist <= 22; // Corner three is 22 feet
+  if (validPos.y <= 14 || validPos.y >= 36) {
+    return dist <= COURT.CORNER_THREE;
   }
 
   return dist <= COURT.THREE_POINT_LINE;
@@ -90,35 +212,35 @@ export function angle(from: Position, to: Position): number {
 /**
  * Get shot zone based on position
  */
-export function getShotZone(pos: Position, isOffense: boolean): 'rim' | 'mid' | 'three' {
-  const distToBasket = distanceToBasket(pos, isOffense);
+export function getShotZone(pos: Position, isOffense: boolean): 'rim' | 'close' | 'mid' | 'three' {
+  const validPos = { x: clamp(pos.x, 0, 94), y: clamp(pos.y, 0, 50) };
+  const distToBasket = distanceToBasket(validPos, isOffense);
 
-  if (distToBasket <= 5) return 'rim';
-  if (isInsideThreePoint(pos, isOffense)) return 'mid';
+  if (distToBasket <= 4) return 'rim';
+  if (distToBasket <= 10) return 'close';
+  if (isInsideThreePoint(validPos, isOffense)) return 'mid';
   return 'three';
 }
 
 /**
- * Calculate spacing quality (how well players are spread out)
- * Returns 0-1, where 1 = perfect spacing
+ * Calculate spacing quality
  */
 export function calculateSpacing(positions: Position[]): number {
   if (positions.length < 2) return 1;
 
+  const validPositions = positions.map(p => ({ x: clamp(p.x, 0, 94), y: clamp(p.y, 0, 50) }));
   let totalDistance = 0;
   let pairs = 0;
 
-  for (let i = 0; i < positions.length; i++) {
-    for (let j = i + 1; j < positions.length; j++) {
-      totalDistance += distance(positions[i], positions[j]);
+  for (let i = 0; i < validPositions.length; i++) {
+    for (let j = i + 1; j < validPositions.length; j++) {
+      totalDistance += distance(validPositions[i], validPositions[j]);
       pairs++;
     }
   }
 
   const avgDistance = totalDistance / pairs;
-  const idealDistance = 15; // Ideal spacing of 15 feet between players
-
-  // Convert to 0-1 scale where closer to ideal = higher score
+  const idealDistance = 15; // feet
   return Math.min(1, avgDistance / idealDistance);
 }
 
@@ -154,31 +276,24 @@ export function calculateOpenLanes(
 }
 
 /**
- * Calculate shot quality based on position and contest
- * Returns 0-1, where 1 = wide open shot
+ * Calculate shot quality
  */
 export function calculateShotQuality(shooterPos: Position, defenderPos: Position | null, isOffense: boolean): number {
-  const zone = getShotZone(shooterPos, isOffense);
-  let baseQuality = 0.5;
-
+  const validShooterPos = { x: clamp(shooterPos.x, 0, 94), y: clamp(shooterPos.y, 0, 50) };
+  const zone = getShotZone(validShooterPos, isOffense);
+  
   // Base quality by zone
-  switch (zone) {
-    case 'rim':
-      baseQuality = 0.8;
-      break;
-    case 'mid':
-      baseQuality = 0.6;
-      break;
-    case 'three':
-      baseQuality = 0.4;
-      break;
-  }
+  const baseQualities = { rim: 0.8, close: 0.65, mid: 0.45, three: 0.35 };
+  let baseQuality = baseQualities[zone] || 0.5;
 
   // Adjust for defensive contest
   if (defenderPos) {
-    const contestDistance = distance(shooterPos, defenderPos);
-    const contestPenalty = Math.max(0, (6 - contestDistance) / 6); // Full contest at 0 feet, no contest at 6+ feet
-    baseQuality *= 1 - contestPenalty * 0.4; // Max 40% penalty for tight contest
+    const validDefenderPos = { x: clamp(defenderPos.x, 0, 94), y: clamp(defenderPos.y, 0, 50) };
+    const contestDistance = distance(validShooterPos, validDefenderPos);
+    const maxDistance = 6; // feet for no contest
+    const contestPenalty = Math.max(0, (maxDistance - contestDistance) / maxDistance);
+    const maxPenalty = 0.4;
+    baseQuality *= 1 - contestPenalty * maxPenalty;
   }
 
   return clamp(baseQuality, 0, 1);
@@ -231,30 +346,85 @@ export function calculateReboundLocation(
 
 /**
  * Calculate rebounding weight based on position, ratings, and boxing out
+ * Now uses RTTB math with exponential weighting
  */
 export function calculateReboundWeight(
   player: any, // Player ratings
   position: Position,
   reboundLocation: Position,
   boxingOut: boolean,
-  beingBoxedOut: boolean
+  beingBoxedOut: boolean,
+  badgeMods = 0
 ): number {
-  // Base weight from rebound rating and physical attributes
-  const baseWeight =
-    (player.rebound * 0.4 + player.vertical * 0.3 + player.strength * 0.2 + player.heightIn * 0.1) / 100;
+  // RTTB formula: exp(0.9*reboundZ + 0.5*heightFt + 0.4*strengthZ + 0.6*posAdv - 0.3*distFt + badgeMods)
+  const reboundZ = ratingZ(player.rebound);
+  const strengthZ = ratingZ(player.strength);
+  const heightFt = (player.heightIn || 78) / 12;
+  const distFt = distance(position, reboundLocation);
+  
+  // Position advantage from boxing out
+  let posAdv = 0;
+  if (boxingOut) posAdv = 1.0;
+  if (beingBoxedOut) posAdv = -0.8;
+  
+  const exponent = 0.9 * reboundZ + 0.5 * heightFt + 0.4 * strengthZ + 0.6 * posAdv - 0.3 * distFt + badgeMods;
+  
+  return Math.exp(exponent);
+}
 
-  // Distance penalty - closer is better
-  const distanceToRebound = distance(position, reboundLocation);
-  const distancePenalty = Math.max(0, 1 - distanceToRebound / 10);
+// RTTB Model Scores
+export function calculateShotScore(
+  threeRating: number,
+  Q: number,
+  contest: number,
+  fatigue: number,
+  clutch: number,
+  badgeMods = 0,
+  noise = 0
+): number {
+  // Shot scoring weights
+  const weights = { rating: 1.2, quality: 0.8, contest: -0.6, fatigue: -0.4, clutch: 0.5 };
+  return weights.rating * ratingZ(threeRating) + 
+         weights.quality * Q + 
+         weights.contest * contest + 
+         weights.fatigue * fatigue + 
+         weights.clutch * clutch + 
+         badgeMods + noise;
+}
 
-  // Boxing out bonuses/penalties
-  let boxOutModifier = 1.0;
-  if (boxingOut) {
-    boxOutModifier = 1.4; // Big advantage for boxing out
-  }
-  if (beingBoxedOut) {
-    boxOutModifier = 0.6; // Significant disadvantage
-  }
+export function calculatePassScore(
+  passRating: number,
+  iqRating: number,
+  laneRisk: number,
+  pressure: number,
+  badgeMods = 0
+): number {
+  // Pass scoring weights
+  const weights = { rating: 1.0, laneRisk: -0.8, pressure: -0.5, iq: 0.6 };
+  return weights.rating * ratingZ(passRating) + 
+         weights.laneRisk * laneRisk + 
+         weights.pressure * pressure + 
+         weights.iq * ratingZ(iqRating) + 
+         badgeMods;
+}
 
-  return baseWeight * distancePenalty * boxOutModifier;
+export function calculateDriveScore(
+  speedRating: number,
+  lateralRating: number,
+  handleRating: number,
+  onBallDefRating: number,
+  lane: number,
+  angle: number,
+  badgeMods = 0
+): number {
+  // Drive scoring weights
+  const weights = { base: 0.2, speedAdvantage: 0.8, handleAdvantage: 0.7, lane: 0.6, angle: 0.3 };
+  const speedAdvantage = ratingZ(speedRating) - ratingZ(lateralRating);
+  const handleAdvantage = ratingZ(handleRating) - ratingZ(onBallDefRating);
+  return weights.base + 
+         weights.speedAdvantage * speedAdvantage + 
+         weights.handleAdvantage * handleAdvantage + 
+         weights.lane * lane + 
+         weights.angle * angle + 
+         badgeMods;
 }

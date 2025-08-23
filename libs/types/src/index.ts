@@ -1,49 +1,163 @@
 export type Id = string;
 
+// RTTB System - Enhanced type definitions
 export type Ratings = {
-  three: number;
-  mid: number;
-  finishing: number;
-  ft: number;
-  pass: number;
-  handle: number;
-  post: number;
-  roll: number;
-  screen: number;
-  onBallDef: number;
-  lateral: number;
-  rimProt: number;
-  steal: number;
-  speed: number;
-  strength: number;
-  vertical: number;
-  rebound: number;
-  iq: number;
-  discipline: number;
-  consistency: number;
-  clutch: number;
-  stamina: number;
-  heightIn: number;
-  wingspanIn: number;
+  // Offense
+  three: number; // 25-99, 3-point shooting ability
+  mid: number; // Mid-range shooting
+  finishing: number; // At-rim finishing
+  ft: number; // Free throw shooting
+  pass: number; // Passing accuracy and vision
+  handle: number; // Ball handling and dribbling
+  post: number; // Post moves and positioning
+  roll: number; // Pick and roll execution
+  screen: number; // Screen setting quality
+  // Defense
+  onBallDef: number; // On-ball defensive pressure
+  lateral: number; // Lateral quickness
+  rimProt: number; // Rim protection and shot blocking
+  steal: number; // Steal ability and anticipation
+  // Physical
+  speed: number; // Straight-line speed
+  accel: number; // Acceleration
+  strength: number; // Physical strength
+  vertical: number; // Vertical leap
+  rebound: number; // Rebounding positioning and timing
+  height: number; // Height in centimeters
+  wingspan: number; // Wingspan in centimeters
+  // Mental
+  iq: number; // Basketball IQ and decision making
+  discipline: number; // Foul avoidance and composure
+  consistency: number; // Performance variance control
+  clutch: number; // Late-game performance boost
+  // Meta
+  stamina: number; // Endurance and fatigue resistance
+  durability: number; // Injury resistance
 };
 
+// Enhanced Tendencies with Dirichlet/Beta distributions
 export type Tendencies = {
-  withBall: [number, number, number, number, number, number, number]; // drive,pullup,catch, pnrAtk,pnrPass,post,reset
-  offBall: [number, number, number, number, number]; // spot,reloc,cut,screen,handoff
-  shotZone: [number, number, number]; // rim,mid,three
-  threeStyle: [number, number]; // catch,offDribble
-  passRisk: number;
-  help: number;
-  gambleSteal: number;
-  crashOreb: number;
+  // Categorical (Dirichlet) — stored as counts, converted to probabilities
+  withBall: number[]; // [drive, pullup, catchShoot, pnrAttack, pnrPass, post, reset]
+  offBall: number[]; // [spot, relocate, cut, screen, handoffRecv]
+  shotZone: number[]; // [rim, mid, three]
+  threeStyle: number[]; // [catchShoot, offDribble]
+  // Binary (Beta/Bernoulli as 0-100 sliders)
+  passRisk: number; // aggressive vs safe passing
+  help: number; // help defense vs stay home
+  gambleSteal: number; // gamble for steals vs contain
+  crashOreb: number; // crash offensive boards vs get back
 };
 
+// Internal representation for runtime calculations
+export type TendencyDistributions = {
+  withBall: { alphas: number[]; mean: number[] };
+  offBall: { alphas: number[]; mean: number[] };
+  shotZone: { alphas: number[]; mean: number[] };
+  threeStyle: { alphas: number[]; mean: number[] };
+  passRisk: { a: number; b: number; mean: number };
+  help: { a: number; b: number; mean: number };
+  gambleSteal: { a: number; b: number; mean: number };
+  crashOreb: { a: number; b: number; mean: number };
+};
+
+// RTTB Trait System
+export type TraitKind = 'archetype' | 'background' | 'quirk';
+
+export type Effect =
+  | { type: 'ratings'; path: keyof Ratings; add?: number; mul?: number; capMin?: number; capMax?: number }
+  | { type: 'tendency'; group: keyof Tendencies; index?: number; add?: number }
+  | { type: 'policy'; key: string; add: number } // small logit bias keys
+  | { type: 'growth'; target: keyof Ratings; slope: number; ceiling?: number }
+  | { type: 'relationship'; key: 'coachTrust' | 'morale' | 'rep'; add: number };
+
+export type Trait = {
+  id: string;
+  kind: TraitKind;
+  name: string;
+  description: string;
+  // Declarative effects (additive to ratings/tendencies, or caps/slopes)
+  effects: Effect[];
+  // Narrative tags that can be queried by story systems
+  tags?: string[]; // e.g., ['work-ethic', 'hometown', 'clutch']
+};
+
+// RTTB Badge System
+export type Predicate = {
+  model?: 'shot' | 'pass' | 'drive' | 'rebound' | 'foul';
+  zone?: 'rim' | 'mid' | 'three';
+  catch?: boolean;
+  distFtGte?: number;
+  distFtLte?: number;
+  angle?: 'good' | 'poor';
+  contact?: boolean;
+  position?: 'inside' | 'outside';
+  laneAngle?: 'narrow' | 'wide';
+  [key: string]: string | number | boolean | undefined; // Allow additional predicates
+};
+
+export type Mod =
+  | { model: 'shot'; addQ?: number; addContest?: number; addScore?: number; multP?: number }
+  | { model: 'pass'; addLaneRisk?: number; addScore?: number }
+  | { model: 'drive'; addScore?: number }
+  | { model: 'rebound'; addWeight?: number }
+  | { model: 'foul'; addScore?: number }
+  | { model: 'policy'; addLogit?: number };
+
+export type ProgressRule = {
+  stat: string; // e.g., 'made_catch3', 'drives_successful'
+  count: number;
+  tier: 1 | 2 | 3;
+};
+
+export type Badge = {
+  id: string;
+  name: string;
+  description: string;
+  tier: 1 | 2 | 3;
+  hidden?: boolean;
+  // Activation predicate against play context
+  when: Predicate;
+  // Numeric modifiers applied while active
+  mods: Mod[];
+  // Progress rules for unlocking & tiering
+  progress?: ProgressRule[];
+  // Runtime behavior
+  runtime?: {
+    cooldownSec?: number;
+    stacks?: number;
+    decay?: number;
+  };
+};
+
+// Badge progress tracking
+export type BadgeProgress = {
+  badgeId: string;
+  currentTier: 0 | 1 | 2 | 3; // 0 = not unlocked
+  stats: Record<string, number>; // stat name -> count
+  lastActiveTs?: number; // for cooldown tracking
+};
+
+// Enhanced Player with full RTTB system
 export type Player = {
   id: Id;
   name: string;
   ratings: Ratings;
   tendencies: Tendencies;
-  badges?: Record<string, { tier: 1 | 2 | 3 }>;
+  traits: Trait[];
+  badges: BadgeProgress[];
+  // Runtime distributions (calculated from tendencies)
+  tendencyDistributions?: TendencyDistributions;
+  // Career progression
+  skillPoints?: number;
+  experience?: number;
+  age?: number;
+  // Relationships and morale
+  relationships?: {
+    coachTrust: number;
+    morale: number;
+    rep: number;
+  };
 };
 
 export type Team = { id: Id; name: string; players: Player[] };
@@ -59,6 +173,11 @@ export type PossessionState = {
   shotClock: number;
   fatigue: Record<Id, number>;
   score: { off: number; def: number };
+  fouls?: {
+    playerFouls: Record<Id, number>;
+    teamFouls: { home: number; away: number };
+    quarterFouls: { home: number; away: number };
+  };
   seed: number; // frame-level seed base
 };
 
@@ -72,7 +191,6 @@ export type OutcomeReb = { kind: 'rebound'; offenseWon: boolean; winner: Id; exp
 export type OutcomeFoul = { kind: 'foul'; on: Id; shooting: boolean };
 
 export type PlayOutcome = OutcomeShot | OutcomePass | OutcomeDrive | OutcomeReb | OutcomeFoul;
-
 
 export const Action = {
   Drive: 'drive',
@@ -184,7 +302,7 @@ export type ReboundResult = {
 export type PlayerStats = {
   playerId: Id;
   minutes: number;
-  
+
   // Scoring
   points: number;
   fieldGoalsMade: number;
@@ -193,35 +311,36 @@ export type PlayerStats = {
   threePointersAttempted: number;
   freeThrowsMade: number;
   freeThrowsAttempted: number;
-  
+
   // Rebounding
   offensiveRebounds: number;
   defensiveRebounds: number;
   totalRebounds: number;
-  
+
   // Playmaking
   assists: number;
   turnovers: number;
-  
+
   // Defense
   steals: number;
   blocks: number;
   foulsCommitted: number;
-  
+
   // Advanced stats
   possessionsUsed: number;
   drives: number;
   drivesSuccessful: number;
   passesAttempted: number;
   passesCompleted: number;
-  
+
   // Shot chart data
   shotsByZone: {
     rim: { made: number; attempted: number };
+    close: { made: number; attempted: number };
     mid: { made: number; attempted: number };
     three: { made: number; attempted: number };
   };
-  
+
   // Efficiency metrics
   trueShootingAttempts: number;
   effectiveFieldGoalPercentage: number;

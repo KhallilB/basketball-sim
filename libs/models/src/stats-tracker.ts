@@ -39,6 +39,7 @@ export function initializePlayerStats(playerId: Id): PlayerStats {
     passesCompleted: 0,
     shotsByZone: {
       rim: { made: 0, attempted: 0 },
+      close: { made: 0, attempted: 0 },
       mid: { made: 0, attempted: 0 },
       three: { made: 0, attempted: 0 }
     },
@@ -187,6 +188,156 @@ function recordShotOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, ou
   // Calculate efficiency metrics
   updateShootingEfficiency(playerStats);
   updateShootingEfficiency(teamTotals);
+}
+
+/**
+ * Record assist when a shot is made from a pass
+ */
+export function recordAssist(gameStats: GameStats, assistPlayerId: Id, isHomeTeam: boolean): void {
+  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+  const playerStats = teamStats.players[assistPlayerId];
+  
+  if (playerStats) {
+    playerStats.assists++;
+    teamStats.teamTotals.assists++;
+  }
+}
+
+/**
+ * RTTB-based assist probability calculation
+ * Considers passer's ratings, receiver's position, and game flow
+ */
+export function calculateAssistProbability(
+  passer: Player, 
+  shooter: Player, 
+  dribblesSincePass: number, 
+  shotQuality: number,
+  gameFlow: number
+): number {
+  // Base assist probability from passer ratings
+  const passRatingZ = (passer.ratings.pass - 50) / 12;
+  const iqRatingZ = (passer.ratings.iq - 50) / 12;
+  
+  // Shooter's ability to convert assists (finishing, shooting ratings)
+  const receiverAbility = (shooter.ratings.three + shooter.ratings.mid + shooter.ratings.finishing) / 3;
+  const receiverZ = (receiverAbility - 50) / 12;
+  
+  // RTTB formula for assist probability - tuned for NBA levels
+  let assistScore = 0.5; // Base probability (higher for more assists)
+  assistScore += passRatingZ * 0.6; // Passer skill (increased weight)
+  assistScore += iqRatingZ * 0.4; // Basketball IQ (increased weight)
+  assistScore += receiverZ * 0.3; // Receiver skill (increased weight)
+  assistScore += shotQuality * 0.4; // Quality of the shot (increased weight)
+  assistScore += gameFlow * 0.3; // Ball movement creates assists (increased weight)
+  
+  // Dribble penalty (NBA rule: assist within 2 dribbles)
+  if (dribblesSincePass > 2) return 0;
+  assistScore -= dribblesSincePass * 0.2; // Fewer dribbles = better assist chance
+  
+  // Convert to probability
+  return Math.min(0.85, 1 / (1 + Math.exp(-assistScore))); // Cap at 85%
+}
+
+/**
+ * Enhanced rebound probability based on RTTB principles
+ * Uses individual ratings, tendencies, and positioning
+ */
+export function calculateReboundWeight(
+  player: Player,
+  reboundLocation: any,
+  playerPosition: any,
+  isOffensiveRebound: boolean,
+  boxedOut: boolean
+): number {
+  // Base ratings (z-scores)
+  const reboundZ = (player.ratings.rebound - 50) / 12;
+  const strengthZ = (player.ratings.strength - 50) / 12;
+  const verticalZ = (player.ratings.vertical - 50) / 12;
+  const heightFt = player.ratings.heightIn / 12;
+  
+  // Tendency modifier for offensive rebounds
+  const crashTendency = player.tendencies.crashOreb / 100; // 0-1 scale
+  
+  // Distance penalty (closer = better chance)
+  const distance = playerPosition && reboundLocation ? 
+    Math.sqrt(Math.pow(playerPosition.x - reboundLocation.x, 2) + Math.pow(playerPosition.y - reboundLocation.y, 2)) : 5;
+  
+  // RTTB rebound weight formula - tuned for better distribution
+  let reboundScore = 0;
+  reboundScore += reboundZ * 0.4; // Primary rebound rating (reduced for less dominance)
+  reboundScore += strengthZ * 0.2; // Strength for battling (reduced)
+  reboundScore += verticalZ * 0.15; // Jumping ability (reduced)
+  reboundScore += heightFt * 0.2; // Height advantage (reduced)
+  reboundScore -= distance * 0.05; // Distance penalty (reduced)
+  
+  // Offensive rebound modifiers
+  if (isOffensiveRebound) {
+    reboundScore += crashTendency * 0.3; // Crashing the boards tendency (reduced)
+    reboundScore -= 0.15; // Defensive rebound advantage (reduced)
+  } else {
+    reboundScore += 0.1; // Natural defensive advantage (reduced)
+  }
+  
+  // Boxing out effect
+  if (boxedOut) {
+    reboundScore -= 0.4; // Penalty for being boxed out (reduced)
+  }
+  
+  // Add baseline to ensure all players have some chance
+  reboundScore += 0.5;
+  
+  // Convert to positive weight (exponential keeps relative differences)
+  return Math.exp(reboundScore);
+}
+
+/**
+ * Simulate free throw shooting based on RTTB principles
+ * Uses player's ft rating with consistency and clutch modifiers
+ */
+export function simulateFreeThrows(player: Player, attempts: number, clutchContext: number, rng: () => number): number {
+  // Base probability from ft rating (25-99 scale)
+  const ftRating = player.ratings.ft;
+  const ftZ = (ftRating - 50) / 12; // Convert to z-score
+  
+  // Apply RTTB formula: base score from rating + consistency + clutch
+  const baseScore = ftZ * 0.8; // Base coefficient for FT shooting
+  const consistencyMod = (player.ratings.consistency - 50) / 12 * 0.1; // Reduces variance
+  const clutchMod = (player.ratings.clutch - 50) / 12 * clutchContext * 0.15; // Late game boost
+  
+  // Noise based on consistency (lower consistency = more variance)
+  const noise = (1 - player.ratings.consistency / 100) * 0.2;
+  
+  let makes = 0;
+  for (let i = 0; i < attempts; i++) {
+    const variance = (rng() - 0.5) * noise;
+    const finalScore = baseScore + consistencyMod + clutchMod + variance;
+    const probability = 1 / (1 + Math.exp(-finalScore)); // Logistic function
+    
+    if (rng() < probability) {
+      makes++;
+    }
+  }
+  
+  return makes;
+}
+
+/**
+ * Record free throw attempts and makes in stats
+ */
+export function recordFreeThrows(gameStats: GameStats, playerId: Id, attempts: number, makes: number, isHomeTeam: boolean): void {
+  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+  const playerStats = teamStats.players[playerId];
+  
+  if (playerStats) {
+    playerStats.freeThrowsAttempted += attempts;
+    playerStats.freeThrowsMade += makes;
+    playerStats.points += makes;
+    
+    // Update team totals
+    teamStats.teamTotals.freeThrowsAttempted += attempts;
+    teamStats.teamTotals.freeThrowsMade += makes;
+    teamStats.teamTotals.points += makes;
+  }
 }
 
 /**

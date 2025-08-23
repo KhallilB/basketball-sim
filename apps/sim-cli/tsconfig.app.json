@@ -10,6 +10,12 @@
   "exclude": ["eslint.config.js", "eslint.config.cjs", "eslint.config.mjs"],
   "references": [
     {
+      "path": "../../libs/math/tsconfig.lib.json"
+    },
+    {
+      "path": "../../libs/telemetry/tsconfig.lib.json"
+    },
+    {
       "path": "../../libs/models/tsconfig.lib.json"
     },
     {

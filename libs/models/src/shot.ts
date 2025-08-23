@@ -8,11 +8,14 @@ type ShotCtx = {
   fatigue: number;
   clutch: number;
   relMod: number;
-  zone: 'three' | 'mid' | 'rim';
+  zone: 'rim' | 'close' | 'mid' | 'three';
 };
 export function shotMakeP(r: Ratings, ctx: ShotCtx): Explain {
   const beta = PARAMS.shot.beta;
-  const baseZ = ctx.zone === 'three' ? z(r.three) : ctx.zone === 'mid' ? z(r.mid) : z(r.finishing);
+  const baseZ = ctx.zone === 'three' ? z(r.three) : 
+                ctx.zone === 'mid' ? z(r.mid) : 
+                ctx.zone === 'close' ? z(r.mid) :  // Close shots use mid-range skill
+                z(r.finishing); // Rim shots use finishing
   const terms = [
     { label: 'skill', value: 1.0 * baseZ },
     { label: 'Q', value: beta.Q * ctx.Q },
