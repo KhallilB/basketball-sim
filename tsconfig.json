@@ -13,9 +13,6 @@
       "path": "./libs/params"
     },
     {
-      "path": "./libs/models"
-    },
-    {
       "path": "./libs/policy"
     },
     {
@@ -25,10 +22,16 @@
       "path": "./libs/random"
     },
     {
-      "path": "./libs/telemetry"
+      "path": "./apps/sim-cli"
     },
     {
-      "path": "./apps/sim-cli"
+      "path": "./libs/gameplay"
+    },
+    {
+      "path": "./libs/player"
+    },
+    {
+      "path": "./libs/systems"
     }
   ]
 }

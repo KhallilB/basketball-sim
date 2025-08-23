@@ -4,6 +4,14 @@
  */
 
 import { logger, performanceLogger } from './logger.js';
+import {
+  Badge,
+  Position,
+  Tendencies,
+  TendencyDistributions,
+  BadgeModifiers,
+  BadgeContext
+} from '@basketball-sim/types';
 import { CONFIG } from './config.js';
 
 // Cache interface
@@ -43,7 +51,7 @@ export class LRUCache<K, V> implements Cache<K, V> {
       performanceLogger.cache('get', true, this.cache.size);
       return value;
     }
-    
+
     this.misses++;
     performanceLogger.cache('get', false, this.cache.size);
     return undefined;
@@ -157,7 +165,7 @@ export class PerformanceTimer {
 }
 
 // Memoization decorator
-export function memoize<Args extends any[], Return>(
+export function memoize<Args extends unknown[], Return>(
   fn: (...args: Args) => Return,
   keyGenerator?: (...args: Args) => string,
   cacheSize?: number
@@ -169,7 +177,7 @@ export function memoize<Args extends any[], Return>(
   return (...args: Args): Return => {
     const key = keyGen(...args);
     const cached = cache.get(key);
-    
+
     if (cached !== undefined) {
       return cached;
     }
@@ -182,62 +190,62 @@ export function memoize<Args extends any[], Return>(
 
 // Cached calculation utilities for basketball simulation
 export class SimulationCache {
-  private tendencyDistributionCache = new LRUCache<string, any>(100);
-  private badgeLookupCache = new LRUCache<string, any>(500);
+  private tendencyDistributionCache = new LRUCache<string, TendencyDistributions>(100);
+  private badgeLookupCache = new LRUCache<string, BadgeModifiers>(500);
   private shotQualityCache = new LRUCache<string, number>(200);
   private spacingCache = new LRUCache<string, number>(150);
 
   // Cache tendency distributions (expensive Dirichlet/Beta calculations)
-  getTendencyDistribution(tendencies: any): any {
+  getTendencyDistribution(tendencies: Tendencies): TendencyDistributions | undefined {
     const key = JSON.stringify(tendencies);
-    let distribution = this.tendencyDistributionCache.get(key);
-    
+    const distribution = this.tendencyDistributionCache.get(key);
+
     if (!distribution && CONFIG.PERFORMANCE.CACHE_TENDENCY_DISTRIBUTIONS) {
       // This would call the actual initializeTendencyDistributions function
       // distribution = initializeTendencyDistributions(tendencies);
       // this.tendencyDistributionCache.set(key, distribution);
     }
-    
+
     return distribution;
   }
 
   // Cache badge lookups
-  getBadgeModifiers(badges: any[], context: any): any {
+  getBadgeModifiers(badges: Badge[], context: BadgeContext): BadgeModifiers | undefined {
     if (!CONFIG.PERFORMANCE.CACHE_BADGE_LOOKUPS) {
-      return null; // Skip caching
+      return undefined; // Skip caching
     }
 
-    const key = JSON.stringify({ badges: badges.map(b => b.badgeId), context });
+    const key = JSON.stringify({ badges: badges.map(b => b.id), context });
     return this.badgeLookupCache.get(key);
   }
 
-  setBadgeModifiers(badges: any[], context: any, modifiers: any): void {
+  setBadgeModifiers(badges: Badge[], context: BadgeContext, modifiers: BadgeModifiers): void {
     if (!CONFIG.PERFORMANCE.CACHE_BADGE_LOOKUPS) {
       return;
     }
 
-    const key = JSON.stringify({ badges: badges.map(b => b.badgeId), context });
+    const key = JSON.stringify({ badges: badges.map(b => b.id), context });
     this.badgeLookupCache.set(key, modifiers);
   }
 
   // Cache shot quality calculations
-  getShotQuality(shooterPos: any, defenderPos: any, isOffense: boolean): number | undefined {
+  getShotQuality(shooterPos: Position, defenderPos: Position, isOffense: boolean): number | undefined {
     const key = JSON.stringify({ shooterPos, defenderPos, isOffense });
     return this.shotQualityCache.get(key);
   }
 
-  setShotQuality(shooterPos: any, defenderPos: any, isOffense: boolean, quality: number): void {
+  setShotQuality(shooterPos: Position, defenderPos: Position, isOffense: boolean, quality: number): void {
     const key = JSON.stringify({ shooterPos, defenderPos, isOffense });
     this.shotQualityCache.set(key, quality);
   }
 
   // Cache spacing calculations
-  getSpacing(positions: any[]): number | undefined {
+  getSpacing(positions: Position[]): number | undefined {
     const key = JSON.stringify(positions);
     return this.spacingCache.get(key);
   }
 
-  setSpacing(positions: any[], spacing: number): void {
+  setSpacing(positions: Position[], spacing: number): void {
     const key = JSON.stringify(positions);
     this.spacingCache.set(key, spacing);
   }
@@ -272,7 +280,7 @@ export class PerformanceMonitor {
     if (!this.metrics.has(operation)) {
       this.metrics.set(operation, []);
     }
-    this.metrics.get(operation)!.push(duration);
+    this.metrics.get(operation).push(duration);
   }
 
   // Increment a counter
@@ -282,7 +290,9 @@ export class PerformanceMonitor {
   }
 
   // Get timing statistics
-  getTimingStats(operation: string): { count: number; avg: number; min: number; max: number; total: number } | undefined {
+  getTimingStats(
+    operation: string
+  ): { count: number; avg: number; min: number; max: number; total: number } | undefined {
     const timings = this.metrics.get(operation);
     if (!timings || timings.length === 0) return undefined;
 
@@ -300,9 +310,12 @@ export class PerformanceMonitor {
   }
 
   // Get all metrics
-  getAllMetrics(): { timings: Record<string, any>; counters: Record<string, number> } {
-    const timings: Record<string, any> = {};
-    for (const [operation, _] of this.metrics) {
+  getAllMetrics(): {
+    timings: Record<string, { count: number; avg: number; min: number; max: number; total: number }>;
+    counters: Record<string, number>;
+  } {
+    const timings: Record<string, { count: number; avg: number; min: number; max: number; total: number }> = {};
+    for (const operation of this.metrics.keys()) {
       timings[operation] = this.getTimingStats(operation);
     }
 
@@ -323,7 +336,7 @@ export class PerformanceMonitor {
   // Log performance summary
   logSummary(): void {
     const metrics = this.getAllMetrics();
-    
+
     logger.info('PERFORMANCE', 'Performance Summary', {
       timings: Object.keys(metrics.timings).length,
       counters: Object.keys(metrics.counters).length
@@ -331,14 +344,19 @@ export class PerformanceMonitor {
 
     // Log top 5 slowest operations
     const sortedTimings = Object.entries(metrics.timings)
-      .filter(([_, stats]) => stats !== undefined)
-      .sort(([_, a], [__, b]) => (b as any).avg - (a as any).avg)
+      .filter(([, stats]) => stats !== undefined)
+      .sort(([, a], [, b]) => (b as { avg: number }).avg - (a as { avg: number }).avg)
       .slice(0, 5);
 
     if (sortedTimings.length > 0) {
       logger.info('PERFORMANCE', 'Slowest Operations:');
       sortedTimings.forEach(([operation, stats]) => {
-        logger.info('PERFORMANCE', `  ${operation}: ${(stats as any).avg.toFixed(2)}ms avg (${(stats as any).count} calls)`);
+        logger.info(
+          'PERFORMANCE',
+          `  ${operation}: ${(stats as { avg: number }).avg.toFixed(2)}ms avg (${
+            (stats as { count: number }).count
+          } calls)`
+        );
       });
     }
 
@@ -380,7 +398,7 @@ export function getMemoryUsage(): { used: number; total: number; percentage: num
       percentage: Math.round((usage.heapUsed / usage.heapTotal) * 100)
     };
   }
-  
+
   return { used: 0, total: 0, percentage: 0 };
 }
 
@@ -391,5 +409,4 @@ export function logMemoryUsage(operation?: string): void {
 }
 
 // Export all utilities
-export { PerformanceTimer, LRUCache };
 export default { simulationCache, performanceMonitor, PerformanceTimer, withPerformanceTracking };

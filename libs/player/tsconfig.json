@@ -3,11 +3,8 @@
   "files": [],
   "include": [],
   "references": [
-    {
-      "path": "../types"
-    },
-    {
-      "path": "./tsconfig.lib.json"
-    }
+    { "path": "../types" },
+    { "path": "../math" },
+    { "path": "./tsconfig.lib.json" }
   ]
 }

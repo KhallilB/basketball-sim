@@ -1,4 +1,4 @@
-import type { Badge, BadgeProgress, Predicate, Mod, Player, Position } from '@basketball-sim/types';
+import type { Badge, BadgeProgress, Mod, Position } from '@basketball-sim/types';
 
 // RTTB Badge System Implementation
 // Contextual modifiers that activate based on game situation
@@ -226,12 +226,14 @@ export function shouldActivateBadge(
     
     if (key.endsWith('Gte')) {
       const numKey = key.replace('Gte', '');
-      if (typeof context[numKey] !== 'number' || context[numKey] < value) {
+      const contextNum = context[numKey];
+      if (typeof contextNum !== 'number' || typeof value !== 'number' || contextNum < value) {
         return false;
       }
     } else if (key.endsWith('Lte')) {
       const numKey = key.replace('Lte', '');
-      if (typeof context[numKey] !== 'number' || context[numKey] > value) {
+      const contextNum = context[numKey];
+      if (typeof contextNum !== 'number' || typeof value !== 'number' || contextNum > value) {
         return false;
       }
     } else if (contextValue !== value) {
@@ -451,7 +453,10 @@ export function explainActiveBadges(
     
     const effects = badgeMods.map(mod => {
       const entries = Object.entries(mod).filter(([key]) => key !== 'model');
-      return entries.map(([key, value]) => `${key}: ${value > 0 ? '+' : ''}${value}`).join(', ');
+      return entries.map(([key, value]) => {
+        const prefix = typeof value === 'number' && value > 0 ? '+' : '';
+        return `${key}: ${prefix}${value}`;
+      }).join(', ');
     }).join('; ');
     
     explanations.push({

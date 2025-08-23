@@ -1,5 +1,9 @@
 export type Id = string;
 
+// Player types
+export type PlayerArchetype = 'generational' | 'top_100' | 'unranked';
+export type PlayerPosition = 'PG' | 'SG' | 'SF' | 'PF' | 'C' | 'G' | 'F';
+
 // RTTB System - Enhanced type definitions
 export type Ratings = {
   // Offense
@@ -138,6 +142,17 @@ export type BadgeProgress = {
   lastActiveTs?: number; // for cooldown tracking
 };
 
+// Badge system cache types
+export interface BadgeModifiers {
+  [key: string]: number;
+}
+
+export interface BadgeContext {
+  situation: string;
+  playerType: string;
+  [key: string]: string | number | boolean;
+}
+
 // Enhanced Player with full RTTB system
 export type Player = {
   id: Id;
@@ -147,13 +162,13 @@ export type Player = {
   traits: Trait[];
   badges: BadgeProgress[];
   // Runtime distributions (calculated from tendencies)
-  tendencyDistributions?: TendencyDistributions;
+  tendencyDistributions: TendencyDistributions;
   // Career progression
-  skillPoints?: number;
-  experience?: number;
-  age?: number;
+  skillPoints: number;
+  experience: number;
+  age: number;
   // Relationships and morale
-  relationships?: {
+  relationships: {
     coachTrust: number;
     morale: number;
     rep: number;

@@ -61,9 +61,9 @@ export const SCORING_WEIGHTS = {
 // Tendency distribution parameters
 export const TENDENCY_CONFIG = {
   DIRICHLET_BASE: 0.1, // Minimum alpha to prevent zeros
-  BETA_MULTIPLIER: 10,  // Scale factor for Beta parameters
-  DECAY_RATE: 0.999,    // Learning decay rate
-  UPDATE_THRESHOLD: 1   // Minimum update value
+  BETA_MULTIPLIER: 10, // Scale factor for Beta parameters
+  DECAY_RATE: 0.999, // Learning decay rate
+  UPDATE_THRESHOLD: 1 // Minimum update value
 } as const;
 
 // Game simulation parameters

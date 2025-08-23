@@ -1,7 +1,7 @@
 import { XRng } from '@basketball-sim/random';
 import { chooseAction } from '@basketball-sim/policy';
 import { Player, Team, PossessionState, Action, Explain, ExplainTerm } from '@basketball-sim/types';
-import { driveBlowbyP, passCompleteP, reboundWeight, shootingFoulP, shotMakeP } from '@basketball-sim/models';
+import { driveBlowbyP, passCompleteP, reboundWeight, shootingFoulP, shotMakeP } from '@basketball-sim/gameplay';
 import { PARAMS } from '@basketball-sim/params';
 
 type Ctx = { off: Team; def: Team; with: Player; state: PossessionState; rng: XRng };

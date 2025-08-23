@@ -4,8 +4,8 @@
  */
 
 import { logger } from './logger.js';
-import { validateRatings, validateTendencies, ValidationError } from './validation.js';
-import type { Badge, Trait, Effect, Predicate, Mod, ProgressRule } from '@basketball-sim/types';
+import { ValidationError } from './validation.js';
+import type { Badge, Trait, Effect, Predicate } from '@basketball-sim/types';
 
 // Registry interfaces
 export interface BadgeRegistry {
@@ -13,7 +13,7 @@ export interface BadgeRegistry {
   unregister(badgeId: string): boolean;
   get(badgeId: string): Badge | undefined;
   getAll(): Badge[];
-  getByTier(tier: 1 | 2 | 3): Badge[];
+  getByTier(tier: 0 | 1 | 2 | 3): Badge[];
   findMatching(predicate: Predicate): Badge[];
   validateBadge(badge: Badge): ValidationError[];
 }
@@ -32,7 +32,6 @@ export interface TraitRegistry {
 class BadgeRegistryImpl implements BadgeRegistry {
   private badges = new Map<string, Badge>();
   private tierIndex = new Map<number, Set<string>>();
-  private tagIndex = new Map<string, Set<string>>();
 
   register(badge: Badge): void {
     const errors = this.validateBadge(badge);
@@ -48,12 +47,14 @@ class BadgeRegistryImpl implements BadgeRegistry {
 
     // Register badge
     this.badges.set(badge.id, badge);
-    
+
     // Update tier index
-    if (!this.tierIndex.has(badge.tier)) {
-      this.tierIndex.set(badge.tier, new Set());
+    let tierSet = this.tierIndex.get(badge.tier);
+    if (!tierSet) {
+      tierSet = new Set();
+      this.tierIndex.set(badge.tier, tierSet);
     }
-    this.tierIndex.get(badge.tier)!.add(badge.id);
+    tierSet.add(badge.id);
 
     logger.debug('REGISTRY', `Registered badge: ${badge.name} (${badge.id})`, { tier: badge.tier });
   }
@@ -64,10 +65,10 @@ class BadgeRegistryImpl implements BadgeRegistry {
 
     // Remove from main registry
     this.badges.delete(badgeId);
-    
+
     // Remove from tier index
     this.tierIndex.get(badge.tier)?.delete(badgeId);
-    
+
     logger.debug('REGISTRY', `Unregistered badge: ${badgeId}`);
     return true;
   }
@@ -80,9 +81,11 @@ class BadgeRegistryImpl implements BadgeRegistry {
     return Array.from(this.badges.values());
   }
 
-  getByTier(tier: 1 | 2 | 3): Badge[] {
+  getByTier(tier: 0 | 1 | 2 | 3): Badge[] {
     const badgeIds = this.tierIndex.get(tier) || new Set();
-    return Array.from(badgeIds).map(id => this.badges.get(id)!).filter(Boolean);
+    return Array.from(badgeIds)
+      .map(id => this.badges.get(id))
+      .filter((badge): badge is Badge => badge !== undefined);
   }
 
   findMatching(predicate: Predicate): Badge[] {
@@ -112,11 +115,13 @@ class BadgeRegistryImpl implements BadgeRegistry {
     }
 
     if (!badge.description || typeof badge.description !== 'string') {
-      errors.push(new ValidationError('Badge description is required and must be a string', 'description', badge.description));
+      errors.push(
+        new ValidationError('Badge description is required and must be a string', 'description', badge.description)
+      );
     }
 
-    if (![1, 2, 3].includes(badge.tier)) {
-      errors.push(new ValidationError('Badge tier must be 1, 2, or 3', 'tier', badge.tier));
+    if (![0, 1, 2, 3].includes(badge.tier)) {
+      errors.push(new ValidationError('Badge tier must be 0, 1, 2, or 3', 'tier', badge.tier));
     }
 
     // Validate predicate
@@ -130,7 +135,7 @@ class BadgeRegistryImpl implements BadgeRegistry {
     } else {
       badge.mods.forEach((mod, index) => {
         if (!mod.model || typeof mod.model !== 'string') {
-          errors.push(new ValidationError(`Mod ${index} must have a valid model`, `mods[${index}].model`, mod.model));
+          errors.push(new ValidationError(`Mod ${index} must have a valid model`, `mods[${index}].model`, mod));
         }
       });
     }
@@ -142,13 +147,27 @@ class BadgeRegistryImpl implements BadgeRegistry {
       } else {
         badge.progress.forEach((rule, index) => {
           if (!rule.stat || typeof rule.stat !== 'string') {
-            errors.push(new ValidationError(`Progress rule ${index} must have a valid stat`, `progress[${index}].stat`, rule.stat));
+            errors.push(
+              new ValidationError(`Progress rule ${index} must have a valid stat`, `progress[${index}].stat`, rule.stat)
+            );
           }
           if (typeof rule.count !== 'number' || rule.count <= 0) {
-            errors.push(new ValidationError(`Progress rule ${index} must have a positive count`, `progress[${index}].count`, rule.count));
+            errors.push(
+              new ValidationError(
+                `Progress rule ${index} must have a positive count`,
+                `progress[${index}].count`,
+                rule.count
+              )
+            );
           }
-          if (![1, 2, 3].includes(rule.tier)) {
-            errors.push(new ValidationError(`Progress rule ${index} tier must be 1, 2, or 3`, `progress[${index}].tier`, rule.tier));
+          if (![0, 1, 2, 3].includes(rule.tier)) {
+            errors.push(
+              new ValidationError(
+                `Progress rule ${index} tier must be 0, 1, 2, or 3`,
+                `progress[${index}].tier`,
+                rule.tier
+              )
+            );
           }
         });
       }
@@ -178,20 +197,24 @@ class TraitRegistryImpl implements TraitRegistry {
 
     // Register trait
     this.traits.set(trait.id, trait);
-    
+
     // Update kind index
-    if (!this.kindIndex.has(trait.kind)) {
-      this.kindIndex.set(trait.kind, new Set());
+    let kindSet = this.kindIndex.get(trait.kind);
+    if (!kindSet) {
+      kindSet = new Set();
+      this.kindIndex.set(trait.kind, kindSet);
     }
-    this.kindIndex.get(trait.kind)!.add(trait.id);
+    kindSet.add(trait.id);
 
     // Update tag index
     if (trait.tags) {
       trait.tags.forEach(tag => {
-        if (!this.tagIndex.has(tag)) {
-          this.tagIndex.set(tag, new Set());
+        let tagSet = this.tagIndex.get(tag);
+        if (!tagSet) {
+          tagSet = new Set();
+          this.tagIndex.set(tag, tagSet);
         }
-        this.tagIndex.get(tag)!.add(trait.id);
+        tagSet.add(trait.id);
       });
     }
 
@@ -204,17 +227,17 @@ class TraitRegistryImpl implements TraitRegistry {
 
     // Remove from main registry
     this.traits.delete(traitId);
-    
+
     // Remove from kind index
     this.kindIndex.get(trait.kind)?.delete(traitId);
-    
+
     // Remove from tag index
     if (trait.tags) {
       trait.tags.forEach(tag => {
         this.tagIndex.get(tag)?.delete(traitId);
       });
     }
-    
+
     logger.debug('REGISTRY', `Unregistered trait: ${traitId}`);
     return true;
   }
@@ -229,15 +252,17 @@ class TraitRegistryImpl implements TraitRegistry {
 
   getByKind(kind: 'archetype' | 'background' | 'quirk'): Trait[] {
     const traitIds = this.kindIndex.get(kind) || new Set();
-    return Array.from(traitIds).map(id => this.traits.get(id)!).filter(Boolean);
+    return Array.from(traitIds)
+      .map(id => this.traits.get(id))
+      .filter((trait): trait is Trait => trait !== undefined);
   }
 
   getByTags(tags: string[]): Trait[] {
     if (tags.length === 0) return [];
-    
+
     // Find traits that have ALL specified tags
     let matchingIds: Set<string> | undefined;
-    
+
     for (const tag of tags) {
       const traitsWithTag = this.tagIndex.get(tag) || new Set();
       if (!matchingIds) {
@@ -246,8 +271,10 @@ class TraitRegistryImpl implements TraitRegistry {
         matchingIds = new Set([...matchingIds].filter(id => traitsWithTag.has(id)));
       }
     }
-    
-    return Array.from(matchingIds || []).map(id => this.traits.get(id)!).filter(Boolean);
+
+    return Array.from(matchingIds || [])
+      .map(id => this.traits.get(id))
+      .filter((trait): trait is Trait => trait !== undefined);
   }
 
   validateTrait(trait: Trait): ValidationError[] {
@@ -263,7 +290,9 @@ class TraitRegistryImpl implements TraitRegistry {
     }
 
     if (!trait.description || typeof trait.description !== 'string') {
-      errors.push(new ValidationError('Trait description is required and must be a string', 'description', trait.description));
+      errors.push(
+        new ValidationError('Trait description is required and must be a string', 'description', trait.description)
+      );
     }
 
     if (!['archetype', 'background', 'quirk'].includes(trait.kind)) {
@@ -293,14 +322,16 @@ class TraitRegistryImpl implements TraitRegistry {
     const prefix = `effects[${index}]`;
 
     if (!effect.type || typeof effect.type !== 'string') {
-      errors.push(new ValidationError(`Effect ${index} must have a valid type`, `${prefix}.type`, effect.type));
+      errors.push(new ValidationError(`Effect ${index} must have a valid type`, `${prefix}.type`, effect));
       return errors; // Can't validate further without type
     }
 
     switch (effect.type) {
       case 'ratings':
         if (!effect.path || typeof effect.path !== 'string') {
-          errors.push(new ValidationError(`Rating effect ${index} must have a valid path`, `${prefix}.path`, effect.path));
+          errors.push(
+            new ValidationError(`Rating effect ${index} must have a valid path`, `${prefix}.path`, effect.path)
+          );
         }
         if (effect.add !== undefined && typeof effect.add !== 'number') {
           errors.push(new ValidationError(`Rating effect ${index} add must be a number`, `${prefix}.add`, effect.add));
@@ -312,10 +343,14 @@ class TraitRegistryImpl implements TraitRegistry {
 
       case 'tendency':
         if (!effect.group || typeof effect.group !== 'string') {
-          errors.push(new ValidationError(`Tendency effect ${index} must have a valid group`, `${prefix}.group`, effect.group));
+          errors.push(
+            new ValidationError(`Tendency effect ${index} must have a valid group`, `${prefix}.group`, effect.group)
+          );
         }
         if (effect.add !== undefined && typeof effect.add !== 'number') {
-          errors.push(new ValidationError(`Tendency effect ${index} add must be a number`, `${prefix}.add`, effect.add));
+          errors.push(
+            new ValidationError(`Tendency effect ${index} add must be a number`, `${prefix}.add`, effect.add)
+          );
         }
         break;
 
@@ -330,24 +365,32 @@ class TraitRegistryImpl implements TraitRegistry {
 
       case 'growth':
         if (!effect.target || typeof effect.target !== 'string') {
-          errors.push(new ValidationError(`Growth effect ${index} must have a valid target`, `${prefix}.target`, effect.target));
+          errors.push(
+            new ValidationError(`Growth effect ${index} must have a valid target`, `${prefix}.target`, effect.target)
+          );
         }
         if (typeof effect.slope !== 'number') {
-          errors.push(new ValidationError(`Growth effect ${index} slope must be a number`, `${prefix}.slope`, effect.slope));
+          errors.push(
+            new ValidationError(`Growth effect ${index} slope must be a number`, `${prefix}.slope`, effect.slope)
+          );
         }
         break;
 
       case 'relationship':
         if (!effect.key || !['coachTrust', 'morale', 'rep'].includes(effect.key)) {
-          errors.push(new ValidationError(`Relationship effect ${index} must have a valid key`, `${prefix}.key`, effect.key));
+          errors.push(
+            new ValidationError(`Relationship effect ${index} must have a valid key`, `${prefix}.key`, effect.key)
+          );
         }
         if (typeof effect.add !== 'number') {
-          errors.push(new ValidationError(`Relationship effect ${index} add must be a number`, `${prefix}.add`, effect.add));
+          errors.push(
+            new ValidationError(`Relationship effect ${index} add must be a number`, `${prefix}.add`, effect.add)
+          );
         }
         break;
 
       default:
-        errors.push(new ValidationError(`Unknown effect type: ${effect.type}`, `${prefix}.type`, effect.type));
+        errors.push(new ValidationError(`Unknown effect type: ${effect}`, `${prefix}.type`, effect));
     }
 
     return errors;

@@ -1,0 +1,11 @@
+{
+  "extends": "../../tsconfig.base.json",
+  "files": [],
+  "include": [],
+  "references": [
+    { "path": "../types" },
+    { "path": "../math" },
+    { "path": "../params" },
+    { "path": "./tsconfig.lib.json" }
+  ]
+}

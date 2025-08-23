@@ -1,4 +1,4 @@
-import type { Trait, Effect, Player, Ratings } from '@basketball-sim/types';
+import type { Trait, Player, Ratings } from '@basketball-sim/types';
 
 // RTTB Trait System Implementation
 // Based on the specification: Archetype (1), Background (2), Quirks (0-1)

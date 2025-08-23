@@ -1,13 +1,10 @@
-import type { Player, Ratings, Tendencies, Trait } from '@basketball-sim/types';
+import type { Player, Ratings, Tendencies, PlayerArchetype, PlayerPosition } from '@basketball-sim/types';
 import { generateRandomTraits, applyTraitEffects } from './traits.js';
 import { initializeBadgeProgress } from './badges.js';
 import { initializeTendencyDistributions } from '@basketball-sim/math';
 
 // RTTB Player Generation System
 // Implements the full specification for creating players with Ratings, Tendencies, Traits, and Badges
-
-export type PlayerArchetype = 'generational' | 'top_100' | 'unranked';
-export type Position = 'PG' | 'SG' | 'SF' | 'PF' | 'C' | 'G' | 'F';
 
 /**
  * Generate a player using the RTTB system
@@ -16,7 +13,7 @@ export function generateRTTBPlayer(
   id: string,
   name: string,
   archetype: PlayerArchetype,
-  position: Position,
+  position: PlayerPosition,
   seed: number,
   age = 18
 ): Player {
@@ -27,13 +24,13 @@ export function generateRTTBPlayer(
 
   // Step 1: Generate base ratings from archetype
   const baseRatings = generateBaseRatings(archetype, position, seed, rng);
-  
+
   // Step 2: Generate traits (1 archetype + 2 background + 0-1 quirk)
   const traits = generateRandomTraits(seed);
-  
+
   // Step 3: Generate base tendencies
   const baseTendencies = generateBaseTendencies(position, seed, rng);
-  
+
   // Step 4: Create base player
   let player: Player = {
     id,
@@ -51,16 +48,16 @@ export function generateRTTBPlayer(
       rep: 30 + Math.floor(rng(seed * 43) * 40) // 30-70 base rep
     }
   };
-  
+
   // Step 5: Apply trait effects
   player = applyTraitEffects(player, traits);
-  
+
   // Step 6: Initialize tendency distributions
   player.tendencyDistributions = initializeTendencyDistributions(player.tendencies);
-  
+
   // Step 7: Apply body/physical adjustments
   player = applyPhysicalAdjustments(player, position, seed, rng);
-  
+
   return player;
 }
 
@@ -69,14 +66,14 @@ export function generateRTTBPlayer(
  */
 function generateBaseRatings(
   archetype: PlayerArchetype,
-  position: Position,
+  position: PlayerPosition,
   seed: number,
   rng: (s: number) => number
 ): Ratings {
   // Base rating ranges by archetype
   let baseRating: number;
   let variance: number;
-  
+
   switch (archetype) {
     case 'generational':
       baseRating = 85; // 80-90 range
@@ -105,51 +102,49 @@ function generateBaseRatings(
 
   return {
     // Offense
-    three: generateRating(baseRating, isGuard ? 12 : isCenter ? -15 : 5),
-    mid: generateRating(baseRating, isGuard ? 8 : 0),
-    finishing: generateRating(baseRating, isBig ? 12 : isGuard ? -5 : 3),
-    ft: generateRating(baseRating, isGuard ? 8 : isBig ? -8 : 0),
-    pass: generateRating(baseRating, isGuard ? 10 : isBig ? -10 : 0),
-    handle: generateRating(baseRating, isGuard ? 15 : isBig ? -15 : 0),
-    post: generateRating(baseRating, isBig ? 18 : isGuard ? -18 : -5),
-    roll: generateRating(baseRating, isBig ? 10 : -8),
-    screen: generateRating(baseRating, isBig ? 8 : -8),
-    
+    three: generateRating(baseRating, isGuard ? 12 : isCenter ? -15 : isForward ? 8 : 5),
+    mid: generateRating(baseRating, isGuard ? 8 : isForward ? 6 : 0),
+    finishing: generateRating(baseRating, isBig ? 12 : isGuard ? -5 : isForward ? 5 : 3),
+    ft: generateRating(baseRating, isGuard ? 8 : isBig ? -8 : isForward ? 3 : 0),
+    pass: generateRating(baseRating, isGuard ? 10 : isBig ? -10 : isForward ? 2 : 0),
+    handle: generateRating(baseRating, isGuard ? 15 : isBig ? -15 : isForward ? 5 : 0),
+    post: generateRating(baseRating, isBig ? 18 : isGuard ? -18 : isForward ? 8 : -5),
+    roll: generateRating(baseRating, isBig ? 10 : isForward ? 3 : -8),
+    screen: generateRating(baseRating, isBig ? 8 : isForward ? 2 : -8),
+
     // Defense
-    onBallDef: generateRating(baseRating, isGuard ? 5 : 0),
-    lateral: generateRating(baseRating, isGuard ? 8 : isBig ? -10 : 0),
-    rimProt: generateRating(baseRating, isBig ? 15 : isGuard ? -15 : -5),
-    steal: generateRating(baseRating, isGuard ? 10 : -5),
-    
+    onBallDef: generateRating(baseRating, isGuard ? 5 : isForward ? 3 : 0),
+    lateral: generateRating(baseRating, isGuard ? 8 : isBig ? -10 : isForward ? 2 : 0),
+    rimProt: generateRating(baseRating, isBig ? 15 : isGuard ? -15 : isForward ? 3 : -5),
+    steal: generateRating(baseRating, isGuard ? 10 : isForward ? 2 : -5),
+
     // Physical
-    speed: generateRating(baseRating, isGuard ? 10 : isBig ? -12 : 0),
-    strength: generateRating(baseRating, isBig ? 12 : isGuard ? -10 : 0),
-    vertical: generateRating(baseRating, isBig ? 8 : 0),
-    rebound: generateRating(baseRating, isBig ? 15 : isGuard ? -12 : 0),
-    
+    speed: generateRating(baseRating, isGuard ? 10 : isBig ? -12 : isForward ? -3 : 0),
+    strength: generateRating(baseRating, isBig ? 12 : isGuard ? -10 : isForward ? 5 : 0),
+    vertical: generateRating(baseRating, isBig ? 8 : isForward ? 5 : 0),
+    rebound: generateRating(baseRating, isBig ? 15 : isGuard ? -12 : isForward ? 8 : 0),
+
     // Mental
-    iq: generateRating(baseRating, isGuard ? 5 : 0),
+    iq: generateRating(baseRating, isGuard ? 5 : isForward ? 3 : 0),
     discipline: generateRating(baseRating),
     consistency: generateRating(baseRating, archetype === 'generational' ? 8 : archetype === 'unranked' ? -5 : 0),
     clutch: generateRating(baseRating, archetype === 'generational' ? 10 : -2),
-    
+
     // Meta
     stamina: generateRating(baseRating),
-    
+    accel: generateRating(baseRating, isGuard ? 8 : isBig ? -10 : isForward ? -2 : 0),
+    durability: generateRating(baseRating, isForward ? 3 : 0),
+
     // Physical measurements (will be set in applyPhysicalAdjustments)
-    heightIn: 72,
-    wingspanIn: 72
+    height: 72,
+    wingspan: 72
   };
 }
 
 /**
  * Generate base tendencies based on position and style
  */
-function generateBaseTendencies(
-  position: Position,
-  seed: number,
-  rng: (s: number) => number
-): Tendencies {
+function generateBaseTendencies(position: PlayerPosition, seed: number, rng: (s: number) => number): Tendencies {
   const isGuard = position.includes('G') || position === 'PG' || position === 'SG';
   const isForward = position.includes('F') || position === 'SF' || position === 'PF';
   const isCenter = position === 'C';
@@ -197,7 +192,7 @@ function generateBaseTendencies(
   // Three-point style
   const threeStyle = [
     0.7 + rng(seed * 83) * 0.2, // catchShoot
-    0.3 + rng(seed * 89) * 0.2  // offDribble
+    0.3 + rng(seed * 89) * 0.2 // offDribble
   ];
   const threeStyleSum = threeStyle.reduce((a, b) => a + b, 0);
   const normalizedThreeStyle = threeStyle.map(t => t / threeStyleSum);
@@ -219,7 +214,7 @@ function generateBaseTendencies(
  */
 function applyPhysicalAdjustments(
   player: Player,
-  position: Position,
+  position: PlayerPosition,
   seed: number,
   rng: (s: number) => number
 ): Player {
@@ -261,12 +256,12 @@ function applyPhysicalAdjustments(
   const height = Math.round(baseHeight + (rng(seed * 109) * 2 - 1) * heightVariance);
   const wingspan = height + Math.round((rng(seed * 113) * 2 - 1) * 3); // ±3 inches from height
 
-  ratings.heightIn = Math.max(68, Math.min(90, height));
-  ratings.wingspanIn = Math.max(68, Math.min(95, wingspan));
+  ratings.height = Math.max(68, Math.min(90, height));
+  ratings.wingspan = Math.max(68, Math.min(95, wingspan));
 
   // Adjust ratings based on physical measurements
   const heightFactor = (height - 78) / 12; // Deviation from average height in feet
-  
+
   // Height affects certain ratings
   ratings.rebound = Math.max(25, Math.min(99, ratings.rebound + Math.round(heightFactor * 3)));
   ratings.rimProt = Math.max(25, Math.min(99, ratings.rimProt + Math.round(heightFactor * 4)));
@@ -294,21 +289,21 @@ export function generateRTTBTeam(
 
   // Roster construction: 15 players with realistic distribution
   const rosterPlan = [
-    { position: 'PG' as Position, archetype: 'top_100' as PlayerArchetype }, // Starting PG
-    { position: 'SG' as Position, archetype: 'generational' as PlayerArchetype }, // Star SG
-    { position: 'SF' as Position, archetype: 'top_100' as PlayerArchetype }, // Starting SF
-    { position: 'PF' as Position, archetype: 'top_100' as PlayerArchetype }, // Starting PF
-    { position: 'C' as Position, archetype: 'top_100' as PlayerArchetype }, // Starting C
-    { position: 'G' as Position, archetype: 'unranked' as PlayerArchetype }, // Backup guard
-    { position: 'G' as Position, archetype: 'unranked' as PlayerArchetype }, // Backup guard
-    { position: 'F' as Position, archetype: 'unranked' as PlayerArchetype }, // Backup forward
-    { position: 'F' as Position, archetype: 'unranked' as PlayerArchetype }, // Backup forward
-    { position: 'C' as Position, archetype: 'unranked' as PlayerArchetype }, // Backup center
-    { position: 'G' as Position, archetype: 'unranked' as PlayerArchetype }, // Deep bench
-    { position: 'F' as Position, archetype: 'unranked' as PlayerArchetype }, // Deep bench
-    { position: 'F' as Position, archetype: 'unranked' as PlayerArchetype }, // Deep bench
-    { position: 'G' as Position, archetype: 'unranked' as PlayerArchetype }, // Deep bench
-    { position: 'C' as Position, archetype: 'unranked' as PlayerArchetype }  // Deep bench
+    { position: 'PG' as PlayerPosition, archetype: 'top_100' as PlayerArchetype }, // Starting PG
+    { position: 'SG' as PlayerPosition, archetype: 'generational' as PlayerArchetype }, // Star SG
+    { position: 'SF' as PlayerPosition, archetype: 'top_100' as PlayerArchetype }, // Starting SF
+    { position: 'PF' as PlayerPosition, archetype: 'top_100' as PlayerArchetype }, // Starting PF
+    { position: 'C' as PlayerPosition, archetype: 'top_100' as PlayerArchetype }, // Starting C
+    { position: 'G' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Backup guard
+    { position: 'G' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Backup guard
+    { position: 'F' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Backup forward
+    { position: 'F' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Backup forward
+    { position: 'C' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Backup center
+    { position: 'G' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Deep bench
+    { position: 'F' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Deep bench
+    { position: 'F' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Deep bench
+    { position: 'G' as PlayerPosition, archetype: 'unranked' as PlayerArchetype }, // Deep bench
+    { position: 'C' as PlayerPosition, archetype: 'unranked' as PlayerArchetype } // Deep bench
   ];
 
   for (let i = 0; i < rosterPlan.length; i++) {
@@ -340,38 +335,38 @@ export function calculateRTTBOverall(ratings: Ratings): number {
     // Offense (40%)
     three: 0.08,
     mid: 0.06,
-    finishing: 0.10,
+    finishing: 0.1,
     ft: 0.02,
     pass: 0.06,
     handle: 0.08,
-    
+
     // Defense (25%)
     onBallDef: 0.08,
     lateral: 0.05,
     rimProt: 0.07,
     steal: 0.05,
-    
+
     // Physical (20%)
     speed: 0.06,
     strength: 0.04,
     vertical: 0.03,
     rebound: 0.07,
-    
+
     // Mental (15%)
     iq: 0.08,
     discipline: 0.03,
     consistency: 0.04,
     clutch: 0.03,
     stamina: 0.03,
-    
+
     // Situational skills (smaller weights)
     post: 0.04,
     roll: 0.03,
     screen: 0.02,
-    
+
     // Physical measurements (minimal impact on overall)
-    heightIn: 0.005,
-    wingspanIn: 0.005
+    height: 0.005,
+    wingspan: 0.005
   };
 
   let overall = 0;

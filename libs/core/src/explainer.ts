@@ -1,4 +1,4 @@
-import type { Explain, ExplainTerm } from '@basketball-sim/types';
+import type { ExplainTerm } from '@basketball-sim/types';
 
 // RTTB Telemetry System - Explainable AI for basketball decisions
 // Every model exposes explain(inputs) → { terms, score, p, activeBadges, traitNudges }

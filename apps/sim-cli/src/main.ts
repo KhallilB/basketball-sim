@@ -1,16 +1,13 @@
 import { PositionalPossessionEngine } from '@basketball-sim/core';
 import { Team, Player, GameStats, TeamStats, PlayerStats, PossessionState } from '@basketball-sim/types';
+import { initializeGameStats, finalizeGameStats, updateMinutesPlayed, RotationManager } from '@basketball-sim/systems';
 import {
-  initializeGameStats,
-  finalizeGameStats,
-  updateMinutesPlayed,
-  RotationManager,
   generateRTTBTeam,
   calculateRTTBOverall,
   getTraitsByKind,
   getAllBadges,
   getUnlockedBadges
-} from '@basketball-sim/models';
+} from '@basketball-sim/player';
 
 // RTTB Enhanced Player Display Functions
 

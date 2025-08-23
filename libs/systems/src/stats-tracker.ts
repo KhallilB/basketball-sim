@@ -253,7 +253,7 @@ export function calculateReboundWeight(
   const reboundZ = (player.ratings.rebound - 50) / 12;
   const strengthZ = (player.ratings.strength - 50) / 12;
   const verticalZ = (player.ratings.vertical - 50) / 12;
-  const heightFt = player.ratings.heightIn / 12;
+  const heightFt = player.ratings.height / 12;
   
   // Tendency modifier for offensive rebounds
   const crashTendency = player.tendencies.crashOreb / 100; // 0-1 scale

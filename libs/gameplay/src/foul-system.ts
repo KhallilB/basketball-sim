@@ -27,7 +27,6 @@ export interface FoulOutcome {
  * Extensible foul tendency system based on RTTB principles
  */
 export class FoulSystem {
-  
   /**
    * Calculate base foul probability using RTTB ratings
    */
@@ -37,10 +36,10 @@ export class FoulSystem {
     const onBallDefZ = (player.ratings.onBallDef - 50) / 12;
     const stealZ = (player.ratings.steal - 50) / 12;
     const lateralZ = (player.ratings.lateral - 50) / 12;
-    
+
     // Tendency modifiers
     const gambleSteal = player.tendencies.gambleSteal / 100; // 0-1 scale
-    
+
     // RTTB formula: linear combination -> logistic
     let foulScore = -2.0; // Base (low foul rate)
     foulScore += disciplineZ * -0.4; // Better discipline = fewer fouls
@@ -48,20 +47,20 @@ export class FoulSystem {
     foulScore += stealZ * 0.1; // Steal attempts can lead to fouls
     foulScore += lateralZ * -0.15; // Better footwork = fewer fouls
     foulScore += gambleSteal * 0.6; // Gambling tendency increases fouls
-    
+
     // Situational modifiers
     foulScore += context.fatigue * 0.8; // More fouls when tired
     foulScore += Math.max(0, -context.scoreDiff / 10) * 0.3; // More fouls when trailing
-    
+
     // Late game pressure (last 2 minutes)
     if (context.gameTime < 120) {
       foulScore += 0.2;
     }
-    
+
     // Convert to probability
     return 1 / (1 + Math.exp(-foulScore));
   }
-  
+
   /**
    * Determine foul type based on context and situation
    */
@@ -80,42 +79,44 @@ export class FoulSystem {
         return 'non-shooting';
     }
   }
-  
+
   /**
    * Calculate free throw situation based on foul type and team fouls
    */
-  private calculateFreeThrows(foulType: FoulType, teamFouls: number, isThreePoint: boolean = false): number {
+  private calculateFreeThrows(foulType: FoulType, teamFouls: number, isThreePoint = false): number {
     if (foulType === 'shooting') {
       return isThreePoint ? 3 : 2;
     }
-    
+
     if (foulType === 'flagrant') {
       return 2;
     }
-    
+
     if (foulType === 'technical') {
       return 1;
     }
-    
+
     // Non-shooting fouls: free throws if in bonus
-    if (teamFouls >= 7) { // Double bonus
+    if (teamFouls >= 7) {
+      // Double bonus
       return 2;
-    } else if (teamFouls >= 4) { // Bonus (1-and-1)
+    } else if (teamFouls >= 4) {
+      // Bonus (1-and-1)
       return 1; // Note: 1-and-1 logic would need special handling
     }
-    
+
     return 0; // Side out
   }
-  
+
   /**
    * Main foul evaluation function
    */
   evaluateFoul(context: FoulContext, isThreePoint: boolean, rng: () => number): FoulOutcome | null {
     const baseFoulRate = this.calculateBaseFoulRate(context.defender, context);
-    
+
     // Additional situation-specific modifiers
     let adjustedRate = baseFoulRate;
-    
+
     switch (context.situation) {
       case 'drive':
         adjustedRate *= 1.8; // Drives create more contact
@@ -130,26 +131,27 @@ export class FoulSystem {
         adjustedRate *= 1.5; // Loose balls create contact
         break;
     }
-    
+
     // Cap at reasonable maximum
     adjustedRate = Math.min(adjustedRate, 0.35);
-    
+
     if (rng() >= adjustedRate) {
       return null; // No foul
     }
-    
+
     // Determine foul type
     const foulType = this.determineFoulType(context, rng);
-    
+
     // Calculate free throws
     const freeThrows = this.calculateFreeThrows(foulType, context.teamFouls, isThreePoint);
-    
+
     // Determine possession retention
-    const retainPossession = foulType === 'shooting' || foulType === 'flagrant' || foulType === 'technical' || freeThrows > 0;
-    
+    const retainPossession =
+      foulType === 'shooting' || foulType === 'flagrant' || foulType === 'technical' || freeThrows > 0;
+
     // Check for ejection (flagrant 2 or 2 technicals)
     const ejection = foulType === 'flagrant' && rng() < 0.1; // 10% chance of flagrant 2
-    
+
     return {
       foulType,
       foulerId: context.defender.id,
@@ -159,29 +161,29 @@ export class FoulSystem {
       description: this.generateFoulDescription(foulType, context.situation)
     };
   }
-  
+
   /**
    * Generate descriptive text for foul types
    */
   private generateFoulDescription(foulType: FoulType, situation: string): string {
     const descriptions = {
-      'shooting': `Shooting foul on the ${situation}`,
+      shooting: `Shooting foul on the ${situation}`,
       'non-shooting': `${situation === 'reach-in' ? 'Reach-in' : 'Personal'} foul`,
-      'flagrant': 'Flagrant foul - excessive contact',
-      'technical': 'Technical foul',
-      'offensive': 'Offensive foul'
+      flagrant: 'Flagrant foul - excessive contact',
+      technical: 'Technical foul',
+      offensive: 'Offensive foul'
     };
-    
+
     return descriptions[foulType] || 'Personal foul';
   }
-  
+
   /**
    * Check if player should foul out (6 fouls in NBA)
    */
   shouldFoulOut(playerFouls: number): boolean {
     return playerFouls >= 6;
   }
-  
+
   /**
    * Determine if team is in bonus situation
    */
@@ -190,7 +192,7 @@ export class FoulSystem {
     if (teamFouls >= 4) return 'bonus';
     return 'none';
   }
-  
+
   /**
    * Calculate intentional foul probability (late game strategy)
    */
@@ -199,11 +201,11 @@ export class FoulSystem {
     if (context.gameTime > 120 || context.scoreDiff >= 0) {
       return 0;
     }
-    
+
     // Increase probability as time runs out and deficit grows
     const timeUrgency = Math.max(0, (120 - context.gameTime) / 120);
     const scoreUrgency = Math.min(1, Math.abs(context.scoreDiff) / 15);
-    
+
     return timeUrgency * scoreUrgency * 0.4; // Max 40% chance
   }
 }
@@ -239,21 +241,21 @@ export function initializeFoulTracker(): FoulTracker {
 }
 
 export function recordFoul(
-  tracker: FoulTracker, 
-  playerId: Id, 
-  foulType: FoulType, 
-  isHomeTeam: boolean, 
-  quarter: number, 
+  tracker: FoulTracker,
+  playerId: Id,
+  foulType: FoulType,
+  isHomeTeam: boolean,
+  quarter: number,
   timeRemaining: number
 ): void {
   // Update player fouls
   tracker.playerFouls[playerId] = (tracker.playerFouls[playerId] || 0) + 1;
-  
+
   // Update team fouls
   const teamKey = isHomeTeam ? 'home' : 'away';
   tracker.teamFouls[teamKey]++;
   tracker.quarterFouls[teamKey]++;
-  
+
   // Record in history
   tracker.foulHistory.push({
     playerId,

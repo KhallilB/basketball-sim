@@ -4,13 +4,10 @@
   "include": [],
   "references": [
     {
-      "path": "../../libs/math"
+      "path": "../../libs/player"
     },
     {
-      "path": "../../libs/telemetry"
-    },
-    {
-      "path": "../../libs/models"
+      "path": "../../libs/systems"
     },
     {
       "path": "../../libs/types"

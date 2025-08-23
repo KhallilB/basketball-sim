@@ -35,7 +35,7 @@ export function cmToFeetInches(cm: number): { feet: number; inches: number } {
   const totalInches = cm / 2.54;
   const feet = Math.floor(totalInches / 12);
   const inches = Math.round(totalInches % 12);
-  
+
   return { feet, inches };
 }
 
@@ -118,7 +118,7 @@ export function mphToKph(mph: number): number {
  * Convert kilometers per hour to miles per hour
  */
 export function kphToMph(kph: number): number {
-  return Math.round(kph / 1.60934 * 100) / 100;
+  return Math.round((kph / 1.60934) * 100) / 100;
 }
 
 /**
@@ -132,14 +132,14 @@ export function mphToMps(mph: number): number {
  * Convert meters per second to miles per hour
  */
 export function mpsToMph(mps: number): number {
-  return Math.round(mps / 0.44704 * 100) / 100;
+  return Math.round((mps / 0.44704) * 100) / 100;
 }
 
 /**
  * Convert kilometers per hour to meters per second
  */
 export function kphToMps(kph: number): number {
-  return Math.round(kph / 3.6 * 100) / 100;
+  return Math.round((kph / 3.6) * 100) / 100;
 }
 
 /**
@@ -165,9 +165,10 @@ export function formatLength(cm: number, unit: LengthUnit = 'ft-in'): string {
     case 'ft':
       return `${cmToFeet(cm).toFixed(1)} ft`;
     case 'ft-in':
-    default:
+    default: {
       const { feet, inches } = cmToFeetInches(cm);
       return `${feet}'${inches}"`;
+    }
   }
 }
 
@@ -208,7 +209,7 @@ export function getLengthDisplay(cm: number): LengthDisplay {
   const { feet, inches } = cmToFeetInches(cm);
   const totalInches = cmToInches(cm);
   const meters = cmToMeters(cm);
-  
+
   return {
     feet,
     inches,
@@ -247,25 +248,25 @@ export function getSpeedDisplay(mps: number): SpeedDisplay {
  */
 export function parseLengthToCm(lengthStr: string): number {
   const str = lengthStr.trim().toLowerCase();
-  
+
   // Handle cm format: "188cm" or "188 cm"
   const cmMatch = str.match(/^(\d+(?:\.\d+)?)\s*cm$/);
   if (cmMatch) {
     return Math.round(parseFloat(cmMatch[1]));
   }
-  
+
   // Handle meters format: "1.88m" or "1.88 m"
   const mMatch = str.match(/^(\d+(?:\.\d+)?)\s*m$/);
   if (mMatch) {
     return metersToCm(parseFloat(mMatch[1]));
   }
-  
+
   // Handle feet format: "6.2ft" or "6.2 ft"
   const ftMatch = str.match(/^(\d+(?:\.\d+)?)\s*ft$/);
   if (ftMatch) {
     return feetToCm(parseFloat(ftMatch[1]));
   }
-  
+
   // Handle feet'inches format: "6'2" or "6'2""
   const feetInchesMatch = str.match(/^(\d+)'(\d+)[""]?$/);
   if (feetInchesMatch) {
@@ -273,14 +274,14 @@ export function parseLengthToCm(lengthStr: string): number {
     const inches = parseInt(feetInchesMatch[2]);
     return feetInchesToCm(feet, inches);
   }
-  
+
   // Handle total inches: "74"
   const inchesMatch = str.match(/^(\d+)$/);
   if (inchesMatch) {
     const inches = parseInt(inchesMatch[1]);
     return inchesToCm(inches);
   }
-  
+
   throw new Error(`Invalid length format: ${lengthStr}`);
 }
 
@@ -290,25 +291,25 @@ export function parseLengthToCm(lengthStr: string): number {
  */
 export function parseWeightToKg(weightStr: string): number {
   const str = weightStr.trim().toLowerCase();
-  
+
   // Handle kg format: "82kg" or "82 kg"
   const kgMatch = str.match(/^(\d+(?:\.\d+)?)\s*kg$/);
   if (kgMatch) {
     return Math.round(parseFloat(kgMatch[1]));
   }
-  
+
   // Handle lb format: "180lb" or "180 lb"
   const lbMatch = str.match(/^(\d+(?:\.\d+)?)\s*lb$/);
   if (lbMatch) {
     return poundsToKg(parseFloat(lbMatch[1]));
   }
-  
+
   // Handle plain number (assume pounds)
   const numberMatch = str.match(/^(\d+(?:\.\d+)?)$/);
   if (numberMatch) {
     return poundsToKg(parseFloat(numberMatch[1]));
   }
-  
+
   throw new Error(`Invalid weight format: ${weightStr}`);
 }
 
@@ -341,40 +342,40 @@ export function getHeightDisplay(cm: number): LengthDisplay {
 export const BASKETBALL_MEASUREMENTS = {
   // Heights in centimeters (NBA averages by position)
   HEIGHTS: {
-    POINT_GUARD: 185,     // ~6'1"
-    SHOOTING_GUARD: 193,  // ~6'4"
-    SMALL_FORWARD: 201,   // ~6'7"
-    POWER_FORWARD: 206,   // ~6'9"
-    CENTER: 211,          // ~6'11"
-    
+    POINT_GUARD: 185, // ~6'1"
+    SHOOTING_GUARD: 193, // ~6'4"
+    SMALL_FORWARD: 201, // ~6'7"
+    POWER_FORWARD: 206, // ~6'9"
+    CENTER: 211, // ~6'11"
+
     // Common thresholds
-    TALL_GUARD: 193,      // 6'4" - tall for a guard
-    SHORT_FORWARD: 198,   // 6'6" - short for a forward
-    BIG_MAN: 203,         // 6'8" - typically considered a "big"
+    TALL_GUARD: 193, // 6'4" - tall for a guard
+    SHORT_FORWARD: 198, // 6'6" - short for a forward
+    BIG_MAN: 203 // 6'8" - typically considered a "big"
   },
-  
+
   // Weights in kilograms (NBA averages by position)
   WEIGHTS: {
-    POINT_GUARD: 84,      // ~185 lb
-    SHOOTING_GUARD: 93,   // ~205 lb
-    SMALL_FORWARD: 100,   // ~220 lb
-    POWER_FORWARD: 109,   // ~240 lb
-    CENTER: 118,          // ~260 lb
+    POINT_GUARD: 84, // ~185 lb
+    SHOOTING_GUARD: 93, // ~205 lb
+    SMALL_FORWARD: 100, // ~220 lb
+    POWER_FORWARD: 109, // ~240 lb
+    CENTER: 118 // ~260 lb
   },
-  
+
   // Court dimensions in centimeters
   COURT: {
-    LENGTH: 2865,         // 94 feet
-    WIDTH: 1524,          // 50 feet
-    RIM_HEIGHT: 305,      // 10 feet
+    LENGTH: 2865, // 94 feet
+    WIDTH: 1524, // 50 feet
+    RIM_HEIGHT: 305, // 10 feet
     THREE_POINT_LINE: 724, // 23'9" (NBA)
-    FREE_THROW_LINE: 457, // 15 feet
+    FREE_THROW_LINE: 457 // 15 feet
   },
-  
+
   // Ball specifications
   BALL: {
-    CIRCUMFERENCE: 76,    // 29.5-29.875 inches (average in cm)
-    WEIGHT: 0.62,         // 22 oz in kg
+    CIRCUMFERENCE: 76, // 29.5-29.875 inches (average in cm)
+    WEIGHT: 0.62 // 22 oz in kg
   }
 } as const;
 

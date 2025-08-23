@@ -13,9 +13,22 @@
     "noImplicitOverride": true,
     "noImplicitReturns": true,
     "noUnusedLocals": true,
+    "noUnusedParameters": true,
     "skipLibCheck": true,
     "strict": true,
     "target": "es2022",
-    "customConditions": ["development"]
+    "customConditions": ["development"],
+    "baseUrl": ".",
+    "paths": {
+      "@basketball-sim/core": ["libs/core/src/index.ts"],
+      "@basketball-sim/gameplay": ["libs/gameplay/src/index.ts"],
+      "@basketball-sim/math": ["libs/math/src/index.ts"],
+      "@basketball-sim/params": ["libs/params/src/index.ts"],
+      "@basketball-sim/player": ["libs/player/src/index.ts"],
+      "@basketball-sim/policy": ["libs/policy/src/index.ts"],
+      "@basketball-sim/random": ["libs/random/src/index.ts"],
+      "@basketball-sim/systems": ["libs/systems/src/index.ts"],
+      "@basketball-sim/types": ["libs/types/src/index.ts"]
+    }
   }
 }

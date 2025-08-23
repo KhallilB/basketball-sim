@@ -7,3 +7,5 @@ export * from './logger.js';
 export * from './display.js';
 export * from './registry.js';
 export * from './performance.js';
+export * from './telemetry.js';
+export * from './explainer.js';

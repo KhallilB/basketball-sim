@@ -1,6 +1,6 @@
-// RTTB Core Math Functions
-// Note: Removed CONFIG dependency to break circular dependency
+// Core Math Functions
 // Math functions now use local constants or accept parameters
+import type { Position, TendencyDistributions, Tendencies, Player } from '@basketball-sim/types';
 
 export const clamp = (x: number, a: number, b: number) => Math.max(a, Math.min(b, x));
 
@@ -66,9 +66,6 @@ export function consistencyNoise(consistency: number, baseNoise = 0.1): number {
   return (Math.random() * 2 - 1) * baseNoise * scale;
 }
 
-// Court geometry utilities
-import type { Position, TendencyDistributions, Tendencies } from '@basketball-sim/types';
-
 // RTTB Tendency Distribution Utilities
 export function initializeTendencyDistributions(tendencies: Tendencies): TendencyDistributions {
   // Convert slider values to Dirichlet alphas (add base to prevent zeros)
@@ -77,21 +74,21 @@ export function initializeTendencyDistributions(tendencies: Tendencies): Tendenc
   const offBallAlphas = tendencies.offBall.map(t => t + dirichletBase);
   const shotZoneAlphas = tendencies.shotZone.map(t => t + dirichletBase);
   const threeStyleAlphas = tendencies.threeStyle.map(t => t + dirichletBase);
-  
+
   // Convert binary sliders to Beta parameters
   const betaMultiplier = 10;
   const passRiskA = (tendencies.passRisk / 100) * betaMultiplier + 1;
   const passRiskB = (1 - tendencies.passRisk / 100) * betaMultiplier + 1;
-  
+
   const helpA = (tendencies.help / 100) * betaMultiplier + 1;
   const helpB = (1 - tendencies.help / 100) * betaMultiplier + 1;
-  
+
   const gambleStealA = (tendencies.gambleSteal / 100) * betaMultiplier + 1;
   const gambleStealB = (1 - tendencies.gambleSteal / 100) * betaMultiplier + 1;
-  
+
   const crashOrebA = (tendencies.crashOreb / 100) * betaMultiplier + 1;
   const crashOrebB = (1 - tendencies.crashOreb / 100) * betaMultiplier + 1;
-  
+
   return {
     withBall: {
       alphas: withBallAlphas,
@@ -248,12 +245,7 @@ export function calculateSpacing(positions: Position[]): number {
  * Calculate open driving lanes from a position
  * Returns 0-1, where 1 = completely open lanes
  */
-export function calculateOpenLanes(
-  ballPosition: Position,
-  offensivePositions: Position[],
-  defensivePositions: Position[],
-  isOffense: boolean
-): number {
+export function calculateOpenLanes(ballPosition: Position, defensivePositions: Position[], isOffense: boolean): number {
   const basket = isOffense ? COURT.BASKETS.HOME : COURT.BASKETS.AWAY;
   const directionToBasket = angle(ballPosition, basket);
 
@@ -281,7 +273,7 @@ export function calculateOpenLanes(
 export function calculateShotQuality(shooterPos: Position, defenderPos: Position | null, isOffense: boolean): number {
   const validShooterPos = { x: clamp(shooterPos.x, 0, 94), y: clamp(shooterPos.y, 0, 50) };
   const zone = getShotZone(validShooterPos, isOffense);
-  
+
   // Base quality by zone
   const baseQualities = { rim: 0.8, close: 0.65, mid: 0.45, three: 0.35 };
   let baseQuality = baseQualities[zone] || 0.5;
@@ -349,7 +341,7 @@ export function calculateReboundLocation(
  * Now uses RTTB math with exponential weighting
  */
 export function calculateReboundWeight(
-  player: any, // Player ratings
+  player: Player, // Player ratings
   position: Position,
   reboundLocation: Position,
   boxingOut: boolean,
@@ -357,18 +349,18 @@ export function calculateReboundWeight(
   badgeMods = 0
 ): number {
   // RTTB formula: exp(0.9*reboundZ + 0.5*heightFt + 0.4*strengthZ + 0.6*posAdv - 0.3*distFt + badgeMods)
-  const reboundZ = ratingZ(player.rebound);
-  const strengthZ = ratingZ(player.strength);
-  const heightFt = (player.heightIn || 78) / 12;
+  const reboundZ = ratingZ(player.ratings.rebound);
+  const strengthZ = ratingZ(player.ratings.strength);
+  const heightFt = (player.ratings.height || 78) / 12;
   const distFt = distance(position, reboundLocation);
-  
+
   // Position advantage from boxing out
   let posAdv = 0;
   if (boxingOut) posAdv = 1.0;
   if (beingBoxedOut) posAdv = -0.8;
-  
+
   const exponent = 0.9 * reboundZ + 0.5 * heightFt + 0.4 * strengthZ + 0.6 * posAdv - 0.3 * distFt + badgeMods;
-  
+
   return Math.exp(exponent);
 }
 
@@ -384,12 +376,15 @@ export function calculateShotScore(
 ): number {
   // Shot scoring weights
   const weights = { rating: 1.2, quality: 0.8, contest: -0.6, fatigue: -0.4, clutch: 0.5 };
-  return weights.rating * ratingZ(threeRating) + 
-         weights.quality * Q + 
-         weights.contest * contest + 
-         weights.fatigue * fatigue + 
-         weights.clutch * clutch + 
-         badgeMods + noise;
+  return (
+    weights.rating * ratingZ(threeRating) +
+    weights.quality * Q +
+    weights.contest * contest +
+    weights.fatigue * fatigue +
+    weights.clutch * clutch +
+    badgeMods +
+    noise
+  );
 }
 
 export function calculatePassScore(
@@ -401,11 +396,13 @@ export function calculatePassScore(
 ): number {
   // Pass scoring weights
   const weights = { rating: 1.0, laneRisk: -0.8, pressure: -0.5, iq: 0.6 };
-  return weights.rating * ratingZ(passRating) + 
-         weights.laneRisk * laneRisk + 
-         weights.pressure * pressure + 
-         weights.iq * ratingZ(iqRating) + 
-         badgeMods;
+  return (
+    weights.rating * ratingZ(passRating) +
+    weights.laneRisk * laneRisk +
+    weights.pressure * pressure +
+    weights.iq * ratingZ(iqRating) +
+    badgeMods
+  );
 }
 
 export function calculateDriveScore(
@@ -421,10 +418,12 @@ export function calculateDriveScore(
   const weights = { base: 0.2, speedAdvantage: 0.8, handleAdvantage: 0.7, lane: 0.6, angle: 0.3 };
   const speedAdvantage = ratingZ(speedRating) - ratingZ(lateralRating);
   const handleAdvantage = ratingZ(handleRating) - ratingZ(onBallDefRating);
-  return weights.base + 
-         weights.speedAdvantage * speedAdvantage + 
-         weights.handleAdvantage * handleAdvantage + 
-         weights.lane * lane + 
-         weights.angle * angle + 
-         badgeMods;
+  return (
+    weights.base +
+    weights.speedAdvantage * speedAdvantage +
+    weights.handleAdvantage * handleAdvantage +
+    weights.lane * lane +
+    weights.angle * angle +
+    badgeMods
+  );
 }

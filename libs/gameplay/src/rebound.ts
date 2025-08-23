@@ -3,7 +3,7 @@ import { Ratings, Explain } from '@basketball-sim/types';
 import { PARAMS } from '@basketball-sim/params';
 
 export function reboundWeight(r: Ratings, posAdv: number, distFt: number): { w: number; explain: Explain } {
-  const heightFt = r.heightIn / 12;
+  const heightFt = r.height / 12;
   const terms = [
     { label: 'rebound', value: PARAMS.rebound.z * z(r.rebound) },
     { label: 'height', value: PARAMS.rebound.height * heightFt },

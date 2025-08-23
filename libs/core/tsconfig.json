@@ -4,10 +4,13 @@
   "include": [],
   "references": [
     {
-      "path": "../params"
+      "path": "../systems"
     },
     {
-      "path": "../models"
+      "path": "../gameplay"
+    },
+    {
+      "path": "../params"
     },
     {
       "path": "../policy"

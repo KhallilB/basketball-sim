@@ -4,19 +4,17 @@
     "outDir": "dist",
     "types": ["node"],
     "rootDir": "src",
+    "baseUrl": "../../",
     "tsBuildInfoFile": "dist/tsconfig.app.tsbuildinfo"
   },
   "include": ["src/**/*.ts"],
   "exclude": ["eslint.config.js", "eslint.config.cjs", "eslint.config.mjs"],
   "references": [
     {
-      "path": "../../libs/math/tsconfig.lib.json"
+      "path": "../../libs/player/tsconfig.lib.json"
     },
     {
-      "path": "../../libs/telemetry/tsconfig.lib.json"
-    },
-    {
-      "path": "../../libs/models/tsconfig.lib.json"
+      "path": "../../libs/systems/tsconfig.lib.json"
     },
     {
       "path": "../../libs/types/tsconfig.lib.json"

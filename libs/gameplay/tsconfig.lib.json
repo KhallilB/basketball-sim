@@ -11,8 +11,8 @@
   },
   "include": ["src/**/*.ts"],
   "references": [
-    {
-      "path": "../types/tsconfig.lib.json"
-    }
+    { "path": "../types/tsconfig.lib.json" },
+    { "path": "../math/tsconfig.lib.json" },
+    { "path": "../params/tsconfig.lib.json" }
   ]
 }

@@ -23,23 +23,25 @@ import {
   determineShotTrajectory,
   determineBoxOuts,
   createReboundParticipants,
-  resolveReboundCompetition,
+  resolveReboundCompetition
+} from '@basketball-sim/gameplay';
+import {
   initializeGameStats,
   recordPlay,
   updatePossessions,
   recordAssist,
-  simulateFreeThrows,
   recordFreeThrows,
-  calculateAssistProbability,
-  calculateReboundWeight
-} from '@basketball-sim/models';
+  simulateFreeThrows,
+  calculateAssistProbability
+} from '@basketball-sim/systems';
 import { PARAMS } from '@basketball-sim/params';
 import {
   calculateOpenLanes,
   calculateShotQuality,
   getShotZone,
   distance,
-  calculateReboundLocation
+  calculateReboundLocation,
+  calculateReboundWeight
 } from '@basketball-sim/math';
 import { DefensiveCoordinator } from './defense.js';
 import { FormationManager } from './formation.js';
@@ -656,14 +658,13 @@ export class PositionalPossessionEngine {
       ctx.def.players.forEach(p => allPlayers.push({ player: p, team: 'def' }));
 
       // Calculate RTTB-based weights for all players
-      const weights = allPlayers.map(({ player, team }) => {
-        const isOffensive = team === 'off';
+      const weights = allPlayers.map(({ player }) => {
         // Get player position for distance calculation
         const playerPos = ctx.state.formation.players[player.id];
         const reboundLoc = shotLocation || ctx.state.formation.ballPosition;
         const boxedOut = false; // Simplified for fallback
 
-        return calculateReboundWeight(player, reboundLoc, playerPos, isOffensive, boxedOut);
+        return calculateReboundWeight(player, playerPos, reboundLoc, false, boxedOut);
       });
 
       const totalWeight = weights.reduce((sum, w) => sum + w, 0);
