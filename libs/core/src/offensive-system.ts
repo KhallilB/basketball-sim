@@ -65,7 +65,7 @@ export class OffensiveSystemManager {
   /**
    * 3-Out, 2-In Motion Offense - balanced inside/outside attack
    */
-  private get3Out2InFormation(team: Team, isHomeTeam: boolean): Position[] {
+  private get3Out2InFormation(_: Team, isHomeTeam: boolean): Position[] {
     if (isHomeTeam) {
       // Home team attacks toward x=94 (right side)
       return [
@@ -90,7 +90,7 @@ export class OffensiveSystemManager {
   /**
    * 4-Out, 1-In Motion Offense - modern perimeter spacing
    */
-  private get4Out1InFormation(team: Team, isHomeTeam: boolean): Position[] {
+  private get4Out1InFormation(_: Team, isHomeTeam: boolean): Position[] {
     if (isHomeTeam) {
       return [
         { x: 30, y: 25 }, // Point guard - top of key
@@ -113,7 +113,7 @@ export class OffensiveSystemManager {
   /**
    * 5-Out Open Post - ultimate spacing for dribble penetration
    */
-  private get5OutFormation(team: Team, isHomeTeam: boolean): Position[] {
+  private get5OutFormation(_: Team, isHomeTeam: boolean): Position[] {
     if (isHomeTeam) {
       return [
         { x: 32, y: 25 }, // Point guard - top of key (3pt)
@@ -136,7 +136,7 @@ export class OffensiveSystemManager {
   /**
    * Dribble-Drive Motion - spaced for penetration and kick-outs
    */
-  private getDribbleDriveFormation(team: Team, isHomeTeam: boolean): Position[] {
+  private getDribbleDriveFormation(_: Team, isHomeTeam: boolean): Position[] {
     if (isHomeTeam) {
       return [
         { x: 32, y: 25 }, // Point guard - top of key

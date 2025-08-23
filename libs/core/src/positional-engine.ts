@@ -529,11 +529,11 @@ export class PositionalPossessionEngine {
   }
 
   private calculateSpacing(offFormation: Formation, defFormation: Formation) {
-    const offPositions = Object.values(offFormation.players) as Position[];
+    // const offPositions = Object.values(offFormation.players) as Position[];
     const defPositions = Object.values(defFormation.players) as Position[];
 
     return {
-      openLanes: calculateOpenLanes(offFormation.ballPosition, offPositions, defPositions, true),
+      openLanes: calculateOpenLanes(offFormation.ballPosition, defPositions, true),
       ballMovement: 0, // Starts at 0, increases with ball movement
       shotQuality: calculateShotQuality(offFormation.ballPosition, defPositions[0] || null, true)
     };

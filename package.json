@@ -3,7 +3,8 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "build": "nx build sim-cli",
+    "start:sim": "node apps/sim-cli/dist/main.js",
+    "build:sim": "nx build sim-cli",
     "build:all": "nx run-many --target=build --all",
     "serve": "nx serve sim-cli",
     "serve:dev": "nx serve sim-cli --configuration=development",

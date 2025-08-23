@@ -310,10 +310,8 @@ async function runEnhancedSimulation() {
         if (rotationManager.shouldSubstitute(player, fatigue, playerStats.minutes, gameTimeElapsed, scoreDiff)) {
           const substitute = rotationManager.getSubstitute(
             team,
-            player,
             lineup,
-            Object.fromEntries(Object.values(teamStats.players).map(p => [p.playerId, p.minutes])),
-            gameTimeElapsed
+            Object.fromEntries(Object.values(teamStats.players).map(p => [p.playerId, p.minutes]))
           );
 
           if (substitute) {

@@ -39,6 +39,7 @@ export function generateRTTBPlayer(
     tendencies: baseTendencies,
     traits: [],
     badges: initializeBadgeProgress(),
+    tendencyDistributions: initializeTendencyDistributions(baseTendencies),
     age,
     skillPoints: 0,
     experience: 0,
@@ -52,7 +53,7 @@ export function generateRTTBPlayer(
   // Step 5: Apply trait effects
   player = applyTraitEffects(player, traits);
 
-  // Step 6: Initialize tendency distributions
+  // Step 6: Update tendency distributions after trait effects
   player.tendencyDistributions = initializeTendencyDistributions(player.tendencies);
 
   // Step 7: Apply body/physical adjustments

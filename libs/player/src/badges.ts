@@ -90,12 +90,8 @@ export const BADGE_CATALOG: Badge[] = [
       model: 'drive', // Applied when teammate drives off screen
       position: 'inside'
     },
-    mods: [
-      { model: 'drive', addScore: 0.15 }
-    ],
-    progress: [
-      { stat: 'effective_screens', count: 100, tier: 1 }
-    ],
+    mods: [{ model: 'drive', addScore: 0.15 }],
+    progress: [{ stat: 'effective_screens', count: 100, tier: 1 }],
     runtime: { cooldownSec: 10 } // Can't stack screens too quickly
   },
   {
@@ -157,7 +153,7 @@ export const BADGE_CATALOG: Badge[] = [
     description: 'Elevated performance in crucial moments',
     tier: 1,
     when: {
-      model: 'shot',
+      model: 'shot'
       // This would be activated by game situation (last 2 minutes, close game)
     },
     mods: [
@@ -198,17 +194,17 @@ export const BADGE_CATALOG: Badge[] = [
 export function shouldActivateBadge(
   badge: Badge,
   context: {
-    model?: string;
-    zone?: string;
-    catch?: boolean;
-    distFt?: number;
-    angle?: string;
-    contact?: boolean;
-    position?: string;
-    laneAngle?: string;
-    gameTime?: number;
-    scoreDiff?: number;
-    [key: string]: any;
+    model: string;
+    zone: string;
+    catch: boolean;
+    distFt: number;
+    angle: string;
+    contact: boolean;
+    position: string;
+    laneAngle: string;
+    gameTime: number;
+    scoreDiff: number;
+    [key: string]: string | number | boolean;
   },
   lastActiveTs?: number
 ): boolean {
@@ -223,7 +219,7 @@ export function shouldActivateBadge(
   // Check all predicate conditions
   for (const [key, value] of Object.entries(badge.when)) {
     const contextValue = context[key];
-    
+
     if (key.endsWith('Gte')) {
       const numKey = key.replace('Gte', '');
       const contextNum = context[numKey];
@@ -263,10 +259,10 @@ export function getActiveBadgeModifiers(
     if (shouldActivateBadge(badge, context, badgeProgress.lastActiveTs)) {
       // Scale mods by tier
       const tierMultiplier = badgeProgress.currentTier;
-      
+
       for (const mod of badge.mods) {
         const scaledMod = { ...mod };
-        
+
         // Scale numeric modifiers by tier
         if ('addQ' in scaledMod && scaledMod.addQ) {
           scaledMod.addQ *= tierMultiplier;
@@ -286,12 +282,12 @@ export function getActiveBadgeModifiers(
         if ('addLogit' in scaledMod && scaledMod.addLogit) {
           scaledMod.addLogit *= tierMultiplier;
         }
-        
+
         mods.push(scaledMod);
       }
-      
+
       activeBadges.push(badge.id);
-      
+
       // Update last active timestamp
       badgeProgress.lastActiveTs = Date.now() / 1000;
     }
@@ -303,10 +299,7 @@ export function getActiveBadgeModifiers(
 /**
  * Update badge progress after a play
  */
-export function updateBadgeProgress(
-  playerBadges: BadgeProgress[],
-  stats: Record<string, number>
-): BadgeProgress[] {
+export function updateBadgeProgress(playerBadges: BadgeProgress[], stats: Record<string, number>): BadgeProgress[] {
   const updatedBadges = [...playerBadges];
 
   for (const badgeProgress of updatedBadges) {
@@ -324,7 +317,7 @@ export function updateBadgeProgress(
     // Check for tier upgrades
     for (const progressRule of badge.progress) {
       const currentCount = badgeProgress.stats[progressRule.stat] || 0;
-      
+
       if (currentCount >= progressRule.count && badgeProgress.currentTier < progressRule.tier) {
         badgeProgress.currentTier = progressRule.tier as 0 | 1 | 2 | 3;
       }
@@ -339,7 +332,7 @@ export function updateBadgeProgress(
  */
 export function initializeBadgeProgress(availableBadges: string[] = []): BadgeProgress[] {
   const badgeIds = availableBadges.length > 0 ? availableBadges : BADGE_CATALOG.map(b => b.id);
-  
+
   return badgeIds.map(badgeId => ({
     badgeId,
     currentTier: 0, // Start locked
@@ -401,32 +394,32 @@ export function generateBadgeContext(
   isCatchAndShoot?: boolean
 ): any {
   const context: any = { model };
-  
+
   if (zone) context.zone = zone;
   if (isCatchAndShoot !== undefined) context.catch = isCatchAndShoot;
-  
+
   // Calculate distance to defender
   if (playerPos && defenderPos) {
     const dx = playerPos.x - defenderPos.x;
     const dy = playerPos.y - defenderPos.y;
     const distFt = Math.sqrt(dx * dx + dy * dy);
     context.distFt = distFt;
-    
+
     // Determine contest angle quality
     context.angle = distFt <= 3 ? 'good' : 'poor';
   }
-  
+
   // Determine position context
   if (playerPos) {
     // Inside paint vs outside
-    context.position = (playerPos.x <= 19 || playerPos.x >= 75) ? 'inside' : 'outside';
+    context.position = playerPos.x <= 19 || playerPos.x >= 75 ? 'inside' : 'outside';
   }
-  
+
   // Game situation context
   if (gameTime !== undefined && gameTime <= 120 && Math.abs(scoreDiff || 0) <= 5) {
     context.clutchSituation = true;
   }
-  
+
   return context;
 }
 
@@ -437,33 +430,32 @@ export function generateBadgeContext(
 /**
  * Explain which badges are active and their effects
  */
-export function explainActiveBadges(
-  activeBadges: string[],
-  mods: Mod[]
-): { badge: string; effect: string }[] {
+export function explainActiveBadges(activeBadges: string[], mods: Mod[]): { badge: string; effect: string }[] {
   const explanations: { badge: string; effect: string }[] = [];
-  
+
   for (const badgeId of activeBadges) {
     const badge = getBadgeById(badgeId);
     if (!badge) continue;
-    
-    const badgeMods = mods.filter(mod => 
-      badge.mods.some(bMod => bMod.model === mod.model)
-    );
-    
-    const effects = badgeMods.map(mod => {
-      const entries = Object.entries(mod).filter(([key]) => key !== 'model');
-      return entries.map(([key, value]) => {
-        const prefix = typeof value === 'number' && value > 0 ? '+' : '';
-        return `${key}: ${prefix}${value}`;
-      }).join(', ');
-    }).join('; ');
-    
+
+    const badgeMods = mods.filter(mod => badge.mods.some(bMod => bMod.model === mod.model));
+
+    const effects = badgeMods
+      .map(mod => {
+        const entries = Object.entries(mod).filter(([key]) => key !== 'model');
+        return entries
+          .map(([key, value]) => {
+            const prefix = typeof value === 'number' && value > 0 ? '+' : '';
+            return `${key}: ${prefix}${value}`;
+          })
+          .join(', ');
+      })
+      .join('; ');
+
     explanations.push({
       badge: badge.name,
       effect: effects
     });
   }
-  
+
   return explanations;
 }

@@ -280,7 +280,10 @@ export class PerformanceMonitor {
     if (!this.metrics.has(operation)) {
       this.metrics.set(operation, []);
     }
-    this.metrics.get(operation).push(duration);
+    const timings = this.metrics.get(operation);
+    if (timings) {
+      timings.push(duration);
+    }
   }
 
   // Increment a counter
@@ -316,7 +319,10 @@ export class PerformanceMonitor {
   } {
     const timings: Record<string, { count: number; avg: number; min: number; max: number; total: number }> = {};
     for (const operation of this.metrics.keys()) {
-      timings[operation] = this.getTimingStats(operation);
+      const stats = this.getTimingStats(operation);
+      if (stats) {
+        timings[operation] = stats;
+      }
     }
 
     const counters: Record<string, number> = {};

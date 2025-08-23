@@ -164,7 +164,7 @@ export function createReboundParticipants(
       position,
       boxOut: null, // Offensive players don't box out
       distanceToRebound: distance(position, reboundLocation),
-      reboundWeight: calculateReboundWeight(player.ratings, position, reboundLocation, false, beingBoxedOut)
+      reboundWeight: calculateReboundWeight(player, position, reboundLocation, false, beingBoxedOut)
     });
   }
 
@@ -180,7 +180,7 @@ export function createReboundParticipants(
       position,
       boxOut: boxOuts[player.id],
       distanceToRebound: distance(position, reboundLocation),
-      reboundWeight: calculateReboundWeight(player.ratings, position, reboundLocation, boxingOut, false)
+      reboundWeight: calculateReboundWeight(player, position, reboundLocation, boxingOut, false)
     });
   }
 
