@@ -16,6 +16,8 @@
     }
   },
   "dependencies": {
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@basketball-sim/types": "workspace:^",
+    "vitest": "^3.2.4"
   }
 }

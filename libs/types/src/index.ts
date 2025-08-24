@@ -157,6 +157,7 @@ export interface BadgeContext {
 export type Player = {
   id: Id;
   name: string;
+  position: PlayerPosition;
   ratings: Ratings;
   tendencies: Tendencies;
   traits: Trait[];
@@ -769,6 +770,8 @@ export type PerformanceExpectation = {
   /** Variance metrics for validation */
   variance: {
     pointsVariance: number;
+    reboundsVariance: number;
+    assistsVariance: number;
     efficiencyVariance: number;
     overallVariance: number;
     withinAcceptableRange: boolean;
@@ -1284,6 +1287,31 @@ export type ReboundResult = {
   tipOut: boolean;
   explain: Explain;
 };
+
+export interface StatsTracker {
+  initializeGameStats(gameId: Id, homeTeam: Team, awayTeam: Team): GameStats;
+  recordPlay(
+    gameStats: GameStats,
+    possession: number,
+    playerId: Id,
+    action: Action,
+    outcome: PlayOutcome,
+    playerPosition: PlayerPosition,
+    isHomeTeam: boolean,
+    timestamp: number
+  ): void;
+  recordAssist(gameStats: GameStats, assistPlayerId: Id, isHomeTeam: boolean): void;
+  recordFreeThrows(gameStats: GameStats, playerId: Id, attempts: number, makes: number, isHomeTeam: boolean): void;
+  simulateFreeThrows(player: Player, attempts: number, clutchContext: number, rng: () => number): number;
+  updatePossessions(gameStats: GameStats, isHomeTeam: boolean): void;
+  finalizeGameStats(gameStats: GameStats, gameTimeMinutes: number): void;
+  updateMinutesPlayed(
+    gameStats: GameStats,
+    homeLineup: Player[],
+    awayLineup: Player[],
+    possessionDuration: number
+  ): void;
+}
 
 // Player statistics tracking
 export type PlayerStats = {

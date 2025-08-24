@@ -1,6 +1,6 @@
 import { PositionalPossessionEngine } from '@basketball-sim/core';
 import { Team, Player, GameStats, TeamStats, PlayerStats, PossessionState, StatValidationResult } from '@basketball-sim/types';
-import { initializeGameStats, finalizeGameStats, updateMinutesPlayed, RotationManager, StatValidator, HIGH_SCHOOL_LEAGUES, AMATEUR_LEAGUES, COLLEGE_LEAGUES } from '@basketball-sim/systems';
+import { RotationManager, StatValidator, StatsTracker, HIGH_SCHOOL_LEAGUES, AMATEUR_LEAGUES, COLLEGE_LEAGUES } from '@basketball-sim/systems';
 import {
   generateRTTBTeam,
   calculateRTTBOverall,
@@ -241,6 +241,7 @@ async function runEnhancedSimulation() {
 
   const engine = new PositionalPossessionEngine();
   const rotationManager = new RotationManager();
+  const statsTracker = new StatsTracker();
 
   // Generate RTTB-enhanced teams with traits and badges
   const homeTeam = generateRTTBTeam('HOME', 'Lakers', 12345);
@@ -279,7 +280,7 @@ async function runEnhancedSimulation() {
   };
 
   // Initialize comprehensive game stats
-  let gameStats = initializeGameStats('GAME-001', homeTeam, awayTeam);
+  let gameStats = statsTracker.initializeGameStats('GAME-001', homeTeam, awayTeam);
 
   let possCount = 0;
   let scoringPlays = 0;
@@ -343,10 +344,10 @@ async function runEnhancedSimulation() {
     state.ball = randomPlayer.id;
 
     // Update minutes for all active players
-    updateMinutesPlayed(gameStats, homeLineup, awayLineup, possessionDuration);
+    statsTracker.updateMinutesPlayed(gameStats, homeLineup, awayLineup, possessionDuration);
 
     // Run the enhanced engine with stats tracking
-    const result = engine.run(offTeam, defTeam, state, 'man', gameStats);
+    const result = engine.run(offTeam, defTeam, state, 'man', statsTracker, gameStats);
 
     // Update state and stats
     state = result.state;
@@ -404,7 +405,7 @@ async function runEnhancedSimulation() {
 
   // Finalize game stats
   const gameTimeMinutes = (2880 - state.clock.sec) / 60;
-  finalizeGameStats(gameStats, gameTimeMinutes);
+  statsTracker.finalizeGameStats(gameStats, gameTimeMinutes);
 
   const finalHomeScore = state.offense === homeTeam.id ? state.score.off : state.score.def;
   const finalAwayScore = state.offense === homeTeam.id ? state.score.def : state.score.off;
@@ -518,7 +519,7 @@ function displayValidationResults(result: StatValidationResult) {
   if (result.outliers && result.outliers.length > 0) {
     console.log(`\n🚨 Statistical Outliers: ${result.outliers.length} found`);
     result.outliers.slice(0, 3).forEach((outlier) => {
-      console.log(`  • Player ${outlier.playerId}: ${outlier.category} - Expected ${outlier.expected.toFixed(1)}, Actual ${outlier.actual.toFixed(1)}`);
+      console.log(`  • Player ${outlier.playerName} (${outlier.playerId}): ${outlier.category} - Expected ${outlier.expected.toFixed(1)}, Actual ${outlier.actual.toFixed(1)}`);
     });
   }
 }

@@ -13,7 +13,8 @@ import {
   Id,
   Explain,
   Formation,
-  Position
+  Position,
+  StatsTracker as IStatsTracker,
 } from '@basketball-sim/types';
 import {
   driveBlowbyP,
@@ -23,17 +24,9 @@ import {
   determineShotTrajectory,
   determineBoxOuts,
   createReboundParticipants,
-  resolveReboundCompetition
+  resolveReboundCompetition,
+  calculateAssistProbability,
 } from '@basketball-sim/gameplay';
-import {
-  initializeGameStats,
-  recordPlay,
-  updatePossessions,
-  recordAssist,
-  recordFreeThrows,
-  simulateFreeThrows,
-  calculateAssistProbability
-} from '@basketball-sim/systems';
 import { PARAMS } from '@basketball-sim/params';
 import {
   calculateOpenLanes,
@@ -41,7 +34,7 @@ import {
   getShotZone,
   distance,
   calculateReboundLocation,
-  calculateReboundWeight
+  calculateReboundWeight,
 } from '@basketball-sim/math';
 import { DefensiveCoordinator } from './defense.js';
 import { FormationManager } from './formation.js';
@@ -57,6 +50,7 @@ type PositionalCtx = {
   formationManager: FormationManager;
   gameStats: GameStats;
   isHomeTeam: boolean;
+  statsTracker: IStatsTracker;
 };
 
 /**
@@ -75,6 +69,7 @@ export class PositionalPossessionEngine {
     def: Team,
     state: PossessionState,
     scheme: DefensiveScheme = 'man',
+    statsTracker: IStatsTracker,
     gameStats?: GameStats
   ): { state: PositionalPossessionState; gameStats: GameStats } {
     const rng = new XRng(state.seed ^ (state.poss * 7919));
@@ -85,14 +80,14 @@ export class PositionalPossessionEngine {
     }
 
     // Initialize or use provided game stats
-    const stats = gameStats || initializeGameStats(state.gameId, off, def);
+    const stats = gameStats || statsTracker.initializeGameStats(state.gameId, off, def);
 
     // Initialize foul tracking if not present
     if (!state.fouls) {
       state.fouls = {
         playerFouls: {},
         teamFouls: { home: 0, away: 0 },
-        quarterFouls: { home: 0, away: 0 }
+        quarterFouls: { home: 0, away: 0 },
       };
     }
 
@@ -123,7 +118,7 @@ export class PositionalPossessionEngine {
       ...state,
       formation: offFormation,
       defensiveAssignments,
-      spacing
+      spacing,
     };
 
     // Reset tracking for new possession
@@ -140,7 +135,8 @@ export class PositionalPossessionEngine {
       coordinator: this.coordinator,
       formationManager: this.formationManager,
       gameStats: stats,
-      isHomeTeam
+      isHomeTeam,
+      statsTracker,
     };
 
     // Main possession loop with positioning
@@ -150,14 +146,13 @@ export class PositionalPossessionEngine {
       const result = this.resolve(action, ctx);
 
       // Record the play in stats
-      const playerPos = ctx.state.formation.players[ctx.with.id];
-      recordPlay(
+      ctx.statsTracker.recordPlay(
         ctx.gameStats,
         ctx.state.poss,
         ctx.with.id,
         action,
         result as PlayOutcome,
-        playerPos,
+        ctx.with.position,
         ctx.isHomeTeam,
         ctx.state.clock.sec
       );
@@ -175,7 +170,7 @@ export class PositionalPossessionEngine {
     }
 
     // Update possession count at the end
-    updatePossessions(ctx.gameStats, ctx.isHomeTeam);
+    ctx.statsTracker.updatePossessions(ctx.gameStats, ctx.isHomeTeam);
 
     return { state: ctx.state, gameStats: ctx.gameStats };
   }
@@ -399,7 +394,7 @@ export class PositionalPossessionEngine {
                 ctx.with.name
               }'s shot (${this.dribblesAfterPass} dribbles, ${(assistProb * 100).toFixed(1)}% prob)`
             );
-            recordAssist(ctx.gameStats, this.lastPassPlayerId, ctx.isHomeTeam);
+            ctx.statsTracker.recordAssist(ctx.gameStats, this.lastPassPlayerId, ctx.isHomeTeam);
           }
         }
       }
@@ -563,8 +558,8 @@ export class PositionalPossessionEngine {
       if (result.foul) {
         // Individual player free throw shooting (2 attempts for drive foul)
         const clutchContext = ctx.state.clock.sec < 120 ? 0.3 : 0.0; // Late game clutch
-        const makes = simulateFreeThrows(ctx.with, 2, clutchContext, () => ctx.rng.next());
-        recordFreeThrows(ctx.gameStats, ctx.with.id, 2, makes, ctx.isHomeTeam);
+        const makes = ctx.statsTracker.simulateFreeThrows(ctx.with, 2, clutchContext, () => ctx.rng.next());
+        ctx.statsTracker.recordFreeThrows(ctx.gameStats, ctx.with.id, 2, makes, ctx.isHomeTeam);
         ctx.state.score.off += makes;
         console.log(`DRIVE FOUL! ${makes}/2 FT (${ctx.with.name}: ${ctx.with.ratings.ft} FT rating)`);
         this.swapPoss(ctx);
@@ -580,7 +575,7 @@ export class PositionalPossessionEngine {
             console.log(
               `ASSIST: ${this.lastPassPlayerId} assisted ${ctx.with.id}'s drive score (${this.dribblesAfterPass} dribbles after pass)`
             );
-            recordAssist(ctx.gameStats, this.lastPassPlayerId, ctx.isHomeTeam);
+            ctx.statsTracker.recordAssist(ctx.gameStats, this.lastPassPlayerId, ctx.isHomeTeam);
           }
 
           this.swapPoss(ctx);
@@ -604,8 +599,8 @@ export class PositionalPossessionEngine {
         // Individual player free throw shooting (2 or 3 attempts based on shot type)
         const attempts = result.three ? 3 : 2;
         const clutchContext = ctx.state.clock.sec < 120 ? 0.3 : 0.0; // Late game clutch
-        const makes = simulateFreeThrows(ctx.with, attempts, clutchContext, () => ctx.rng.next());
-        recordFreeThrows(ctx.gameStats, ctx.with.id, attempts, makes, ctx.isHomeTeam);
+        const makes = ctx.statsTracker.simulateFreeThrows(ctx.with, attempts, clutchContext, () => ctx.rng.next());
+        ctx.statsTracker.recordFreeThrows(ctx.gameStats, ctx.with.id, attempts, makes, ctx.isHomeTeam);
         ctx.state.score.off += makes;
         console.log(`SHOT FOUL! ${makes}/${attempts} FT (${ctx.with.name}: ${ctx.with.ratings.ft} FT rating)`);
         this.swapPoss(ctx);
@@ -742,14 +737,17 @@ export class PositionalPossessionEngine {
       offenseWon: offenseWon
     };
 
-    const playerPos = ctx.state.formation.players[winnerId];
-    recordPlay(
+    // Find the rebounding player to get their position
+    const reboundingPlayer = [...ctx.off.players, ...ctx.def.players].find(p => p.id === winnerId);
+    const playerPosition = reboundingPlayer ? reboundingPlayer.position : 'C';
+    
+    ctx.statsTracker.recordPlay(
       ctx.gameStats,
       ctx.state.poss,
       winnerId,
       'rebound' as Action,
       reboundOutcome as PlayOutcome,
-      playerPos,
+      playerPosition,
       ctx.isHomeTeam,
       ctx.state.clock.sec
     );

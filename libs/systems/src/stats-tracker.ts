@@ -6,507 +6,343 @@ import type {
   Action,
   Id,
   Team,
-  Player
+  Player,
+  StatsTracker as IStatsTracker,
 } from '@basketball-sim/types';
 import { getShotZone } from '@basketball-sim/math';
 
-/**
- * Initialize empty player stats
- */
-export function initializePlayerStats(playerId: Id): PlayerStats {
-  return {
-    playerId,
-    minutes: 0,
-    points: 0,
-    fieldGoalsMade: 0,
-    fieldGoalsAttempted: 0,
-    threePointersMade: 0,
-    threePointersAttempted: 0,
-    freeThrowsMade: 0,
-    freeThrowsAttempted: 0,
-    offensiveRebounds: 0,
-    defensiveRebounds: 0,
-    totalRebounds: 0,
-    assists: 0,
-    turnovers: 0,
-    steals: 0,
-    blocks: 0,
-    foulsCommitted: 0,
-    possessionsUsed: 0,
-    drives: 0,
-    drivesSuccessful: 0,
-    passesAttempted: 0,
-    passesCompleted: 0,
-    shotsByZone: {
-      rim: { made: 0, attempted: 0 },
-      close: { made: 0, attempted: 0 },
-      mid: { made: 0, attempted: 0 },
-      three: { made: 0, attempted: 0 }
-    },
-    trueShootingAttempts: 0,
-    effectiveFieldGoalPercentage: 0,
-    plusMinus: 0
-  };
-}
-
-/**
- * Initialize team stats
- */
-export function initializeTeamStats(team: Team): TeamStats {
-  const playerStats: Record<Id, PlayerStats> = {};
-  
-  for (const player of team.players) {
-    playerStats[player.id] = initializePlayerStats(player.id);
+export class StatsTracker implements IStatsTracker {
+  initializePlayerStats(playerId: Id): PlayerStats {
+    return {
+      playerId,
+      minutes: 0,
+      points: 0,
+      fieldGoalsMade: 0,
+      fieldGoalsAttempted: 0,
+      threePointersMade: 0,
+      threePointersAttempted: 0,
+      freeThrowsMade: 0,
+      freeThrowsAttempted: 0,
+      offensiveRebounds: 0,
+      defensiveRebounds: 0,
+      totalRebounds: 0,
+      assists: 0,
+      turnovers: 0,
+      steals: 0,
+      blocks: 0,
+      foulsCommitted: 0,
+      possessionsUsed: 0,
+      drives: 0,
+      drivesSuccessful: 0,
+      passesAttempted: 0,
+      passesCompleted: 0,
+      shotsByZone: {
+        rim: { made: 0, attempted: 0 },
+        close: { made: 0, attempted: 0 },
+        mid: { made: 0, attempted: 0 },
+        three: { made: 0, attempted: 0 },
+      },
+      trueShootingAttempts: 0,
+      effectiveFieldGoalPercentage: 0,
+      plusMinus: 0,
+    };
   }
 
-  const teamTotals = initializePlayerStats('team-total');
-  // Set team totals defaults properly for team-wide stats
-  teamTotals.playerId = team.id;
-  teamTotals.minutes = 0; // Team doesn't have minutes
-  teamTotals.plusMinus = 0; // Will be calculated differently
+  initializeTeamStats(team: Team): TeamStats {
+    const playerStats: Record<Id, PlayerStats> = {};
 
-  return {
-    teamId: team.id,
-    players: playerStats,
-    teamTotals,
-    possessions: 0,
-    pace: 0
-  };
-}
+    for (const player of team.players) {
+      playerStats[player.id] = this.initializePlayerStats(player.id);
+    }
 
-/**
- * Initialize game stats
- */
-export function initializeGameStats(gameId: Id, homeTeam: Team, awayTeam: Team): GameStats {
-  return {
-    gameId,
-    homeTeam: initializeTeamStats(homeTeam),
-    awayTeam: initializeTeamStats(awayTeam),
-    finalScore: { home: 0, away: 0 },
-    gameLength: 0,
-    playByPlay: []
-  };
-}
+    const teamTotals = this.initializePlayerStats('team-total');
+    // Set team totals defaults properly for team-wide stats
+    teamTotals.playerId = team.id;
+    teamTotals.minutes = 0; // Team doesn't have minutes
+    teamTotals.plusMinus = 0; // Will be calculated differently
 
-/**
- * Record a play outcome and update stats
- */
-export function recordPlay(
-  gameStats: GameStats,
-  possession: number,
-  playerId: Id,
-  action: Action,
-  outcome: PlayOutcome,
-  playerPosition: any,
-  isHomeTeam: boolean,
-  timestamp: number
-): void {
-  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
-  const playerStats = teamStats.players[playerId];
-  
-  if (!playerStats) return;
-
-  // Add to play by play
-  gameStats.playByPlay.push({
-    possession,
-    player: playerId,
-    action,
-    outcome,
-    timestamp
-  });
-
-  // Update possession usage
-  if (['drive', 'pullup', 'catchShoot', 'post'].includes(action)) {
-    playerStats.possessionsUsed++;
-    teamStats.teamTotals.possessionsUsed++;
+    return {
+      teamId: team.id,
+      players: playerStats,
+      teamTotals,
+      possessions: 0,
+      pace: 0,
+    };
   }
 
-  // Record outcome-specific stats
-  switch (outcome.kind) {
-    case 'shot':
-      recordShotOutcome(playerStats, teamStats.teamTotals, outcome, playerPosition);
-      break;
-    case 'drive':
-      recordDriveOutcome(playerStats, teamStats.teamTotals, outcome);
-      break;
-    case 'pass':
-      recordPassOutcome(playerStats, teamStats.teamTotals, outcome);
-      break;
-    case 'rebound':
-      recordReboundOutcome(playerStats, teamStats.teamTotals, outcome, playerId);
-      break;
-    case 'foul':
-      recordFoulOutcome(gameStats, outcome, isHomeTeam);
-      break;
-  }
-}
-
-/**
- * Record shot outcome
- */
-function recordShotOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any, playerPosition: any): void {
-  playerStats.fieldGoalsAttempted++;
-  teamTotals.fieldGoalsAttempted++;
-  
-  const zone = playerPosition ? getShotZone(playerPosition, true) : 'mid';
-  playerStats.shotsByZone[zone].attempted++;
-  
-  if (outcome.three) {
-    playerStats.threePointersAttempted++;
-    teamTotals.threePointersAttempted++;
+  initializeGameStats(gameId: Id, homeTeam: Team, awayTeam: Team): GameStats {
+    return {
+      gameId,
+      homeTeam: this.initializeTeamStats(homeTeam),
+      awayTeam: this.initializeTeamStats(awayTeam),
+      finalScore: { home: 0, away: 0 },
+      gameLength: 0,
+      playByPlay: [],
+    };
   }
 
-  if (outcome.make) {
-    playerStats.fieldGoalsMade++;
-    teamTotals.fieldGoalsMade++;
-    playerStats.shotsByZone[zone].made++;
-    
-    const points = outcome.three ? 3 : 2;
-    playerStats.points += points;
-    teamTotals.points += points;
-    
+  recordPlay(
+    gameStats: GameStats,
+    possession: number,
+    playerId: Id,
+    action: Action,
+    outcome: PlayOutcome,
+    playerPosition: any,
+    isHomeTeam: boolean,
+    timestamp: number
+  ): void {
+    const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+    const playerStats = teamStats.players[playerId];
+
+    if (!playerStats) return;
+
+    // Add to play by play
+    gameStats.playByPlay.push({
+      possession,
+      player: playerId,
+      action,
+      outcome,
+      timestamp,
+    });
+
+    // Update possession usage
+    if (['drive', 'pullup', 'catchShoot', 'post'].includes(action)) {
+      playerStats.possessionsUsed++;
+      teamStats.teamTotals.possessionsUsed++;
+    }
+
+    // Record outcome-specific stats
+    switch (outcome.kind) {
+      case 'shot':
+        this.recordShotOutcome(playerStats, teamStats.teamTotals, outcome, playerPosition);
+        break;
+      case 'drive':
+        this.recordDriveOutcome(playerStats, teamStats.teamTotals, outcome);
+        break;
+      case 'pass':
+        this.recordPassOutcome(playerStats, teamStats.teamTotals, outcome);
+        break;
+      case 'rebound':
+        this.recordReboundOutcome(playerStats, teamStats.teamTotals, outcome, playerId);
+        break;
+      case 'foul':
+        this.recordFoulOutcome(gameStats, outcome, isHomeTeam);
+        break;
+    }
+  }
+
+  recordShotOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any, playerPosition: any): void {
+    playerStats.fieldGoalsAttempted++;
+    teamTotals.fieldGoalsAttempted++;
+
+    const zone = playerPosition ? getShotZone(playerPosition, true) : 'mid';
+    playerStats.shotsByZone[zone].attempted++;
+
     if (outcome.three) {
-      playerStats.threePointersMade++;
-      teamTotals.threePointersMade++;
+      playerStats.threePointersAttempted++;
+      teamTotals.threePointersAttempted++;
     }
-  }
 
-  if (outcome.fouled) {
-    // Free throws will be handled separately
-    const freeThrows = outcome.three ? 3 : 2;
-    playerStats.freeThrowsAttempted += freeThrows;
-    teamTotals.freeThrowsAttempted += freeThrows;
-    
-    // Assume 75% free throw shooting for now
-    const made = Math.floor(freeThrows * 0.75);
-    playerStats.freeThrowsMade += made;
-    teamTotals.freeThrowsMade += made;
-    playerStats.points += made;
-    teamTotals.points += made;
-  }
+    if (outcome.make) {
+      playerStats.fieldGoalsMade++;
+      teamTotals.fieldGoalsMade++;
+      playerStats.shotsByZone[zone].made++;
 
-  // Calculate efficiency metrics
-  updateShootingEfficiency(playerStats);
-  updateShootingEfficiency(teamTotals);
-}
+      const points = outcome.three ? 3 : 2;
+      playerStats.points += points;
+      teamTotals.points += points;
 
-/**
- * Record assist when a shot is made from a pass
- */
-export function recordAssist(gameStats: GameStats, assistPlayerId: Id, isHomeTeam: boolean): void {
-  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
-  const playerStats = teamStats.players[assistPlayerId];
-  
-  if (playerStats) {
-    playerStats.assists++;
-    teamStats.teamTotals.assists++;
-  }
-}
-
-/**
- * RTTB-based assist probability calculation
- * Considers passer's ratings, receiver's position, and game flow
- */
-export function calculateAssistProbability(
-  passer: Player, 
-  shooter: Player, 
-  dribblesSincePass: number, 
-  shotQuality: number,
-  gameFlow: number
-): number {
-  // Base assist probability from passer ratings
-  const passRatingZ = (passer.ratings.pass - 50) / 12;
-  const iqRatingZ = (passer.ratings.iq - 50) / 12;
-  
-  // Shooter's ability to convert assists (finishing, shooting ratings)
-  const receiverAbility = (shooter.ratings.three + shooter.ratings.mid + shooter.ratings.finishing) / 3;
-  const receiverZ = (receiverAbility - 50) / 12;
-  
-  // RTTB formula for assist probability - tuned for NBA levels
-  let assistScore = 0.5; // Base probability (higher for more assists)
-  assistScore += passRatingZ * 0.6; // Passer skill (increased weight)
-  assistScore += iqRatingZ * 0.4; // Basketball IQ (increased weight)
-  assistScore += receiverZ * 0.3; // Receiver skill (increased weight)
-  assistScore += shotQuality * 0.4; // Quality of the shot (increased weight)
-  assistScore += gameFlow * 0.3; // Ball movement creates assists (increased weight)
-  
-  // Dribble penalty (NBA rule: assist within 2 dribbles)
-  if (dribblesSincePass > 2) return 0;
-  assistScore -= dribblesSincePass * 0.2; // Fewer dribbles = better assist chance
-  
-  // Convert to probability
-  return Math.min(0.85, 1 / (1 + Math.exp(-assistScore))); // Cap at 85%
-}
-
-/**
- * Enhanced rebound probability based on RTTB principles
- * Uses individual ratings, tendencies, and positioning
- */
-export function calculateReboundWeight(
-  player: Player,
-  reboundLocation: any,
-  playerPosition: any,
-  isOffensiveRebound: boolean,
-  boxedOut: boolean
-): number {
-  // Base ratings (z-scores)
-  const reboundZ = (player.ratings.rebound - 50) / 12;
-  const strengthZ = (player.ratings.strength - 50) / 12;
-  const verticalZ = (player.ratings.vertical - 50) / 12;
-  const heightFt = player.ratings.height / 12;
-  
-  // Tendency modifier for offensive rebounds
-  const crashTendency = player.tendencies.crashOreb / 100; // 0-1 scale
-  
-  // Distance penalty (closer = better chance)
-  const distance = playerPosition && reboundLocation ? 
-    Math.sqrt(Math.pow(playerPosition.x - reboundLocation.x, 2) + Math.pow(playerPosition.y - reboundLocation.y, 2)) : 5;
-  
-  // RTTB rebound weight formula - tuned for better distribution
-  let reboundScore = 0;
-  reboundScore += reboundZ * 0.4; // Primary rebound rating (reduced for less dominance)
-  reboundScore += strengthZ * 0.2; // Strength for battling (reduced)
-  reboundScore += verticalZ * 0.15; // Jumping ability (reduced)
-  reboundScore += heightFt * 0.2; // Height advantage (reduced)
-  reboundScore -= distance * 0.05; // Distance penalty (reduced)
-  
-  // Offensive rebound modifiers
-  if (isOffensiveRebound) {
-    reboundScore += crashTendency * 0.3; // Crashing the boards tendency (reduced)
-    reboundScore -= 0.15; // Defensive rebound advantage (reduced)
-  } else {
-    reboundScore += 0.1; // Natural defensive advantage (reduced)
-  }
-  
-  // Boxing out effect
-  if (boxedOut) {
-    reboundScore -= 0.4; // Penalty for being boxed out (reduced)
-  }
-  
-  // Add baseline to ensure all players have some chance
-  reboundScore += 0.5;
-  
-  // Convert to positive weight (exponential keeps relative differences)
-  return Math.exp(reboundScore);
-}
-
-/**
- * Simulate free throw shooting based on RTTB principles
- * Uses player's ft rating with consistency and clutch modifiers
- */
-export function simulateFreeThrows(player: Player, attempts: number, clutchContext: number, rng: () => number): number {
-  // Base probability from ft rating (25-99 scale)
-  const ftRating = player.ratings.ft;
-  const ftZ = (ftRating - 50) / 12; // Convert to z-score
-  
-  // Apply RTTB formula: base score from rating + consistency + clutch
-  const baseScore = ftZ * 0.8; // Base coefficient for FT shooting
-  const consistencyMod = (player.ratings.consistency - 50) / 12 * 0.1; // Reduces variance
-  const clutchMod = (player.ratings.clutch - 50) / 12 * clutchContext * 0.15; // Late game boost
-  
-  // Noise based on consistency (lower consistency = more variance)
-  const noise = (1 - player.ratings.consistency / 100) * 0.2;
-  
-  let makes = 0;
-  for (let i = 0; i < attempts; i++) {
-    const variance = (rng() - 0.5) * noise;
-    const finalScore = baseScore + consistencyMod + clutchMod + variance;
-    const probability = 1 / (1 + Math.exp(-finalScore)); // Logistic function
-    
-    if (rng() < probability) {
-      makes++;
+      if (outcome.three) {
+        playerStats.threePointersMade++;
+        teamTotals.threePointersMade++;
+      }
     }
-  }
-  
-  return makes;
-}
 
-/**
- * Record free throw attempts and makes in stats
- */
-export function recordFreeThrows(gameStats: GameStats, playerId: Id, attempts: number, makes: number, isHomeTeam: boolean): void {
-  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
-  const playerStats = teamStats.players[playerId];
-  
-  if (playerStats) {
-    playerStats.freeThrowsAttempted += attempts;
-    playerStats.freeThrowsMade += makes;
-    playerStats.points += makes;
-    
-    // Update team totals
-    teamStats.teamTotals.freeThrowsAttempted += attempts;
-    teamStats.teamTotals.freeThrowsMade += makes;
-    teamStats.teamTotals.points += makes;
-  }
-}
+    if (outcome.fouled) {
+      // Free throws will be handled separately
+      const freeThrows = outcome.three ? 3 : 2;
+      playerStats.freeThrowsAttempted += freeThrows;
+      teamTotals.freeThrowsAttempted += freeThrows;
 
-/**
- * Record drive outcome
- */
-function recordDriveOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any): void {
-  playerStats.drives++;
-  teamTotals.drives++;
-  
-  if (outcome.blowby) {
-    playerStats.drivesSuccessful++;
-    teamTotals.drivesSuccessful++;
-  }
-}
-
-/**
- * Record pass outcome
- */
-function recordPassOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any): void {
-  playerStats.passesAttempted++;
-  teamTotals.passesAttempted++;
-  
-  if (outcome.complete) {
-    playerStats.passesCompleted++;
-    teamTotals.passesCompleted++;
-    // Note: Assists are recorded when the pass leads to a made shot
-  } else if (outcome.turnover) {
-    playerStats.turnovers++;
-    teamTotals.turnovers++;
-  }
-}
-
-/**
- * Record rebound outcome
- */
-function recordReboundOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any, playerId: Id): void {
-  if (outcome.winner === playerId) {
-    if (outcome.offenseWon) {
-      playerStats.offensiveRebounds++;
-      teamTotals.offensiveRebounds++;
-    } else {
-      playerStats.defensiveRebounds++;
-      teamTotals.defensiveRebounds++;
+      // Assume 75% free throw shooting for now
+      const made = Math.floor(freeThrows * 0.75);
+      playerStats.freeThrowsMade += made;
+      teamTotals.freeThrowsMade += made;
+      playerStats.points += made;
+      teamTotals.points += made;
     }
-    playerStats.totalRebounds++;
-    teamTotals.totalRebounds++;
+
+    // Calculate efficiency metrics
+    this.updateShootingEfficiency(playerStats);
+    this.updateShootingEfficiency(teamTotals);
   }
-}
 
-/**
- * Record foul outcome
- */
-function recordFoulOutcome(gameStats: GameStats, outcome: any, isHomeTeam: boolean): void {
-  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
-  const playerStats = teamStats.players[outcome.on];
-  
-  if (playerStats) {
-    playerStats.foulsCommitted++;
-    teamStats.teamTotals.foulsCommitted++;
-  }
-}
+  recordAssist(gameStats: GameStats, assistPlayerId: Id, isHomeTeam: boolean): void {
+    const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+    const playerStats = teamStats.players[assistPlayerId];
 
-/**
- * Update shooting efficiency metrics
- */
-function updateShootingEfficiency(stats: PlayerStats): void {
-  if (stats.fieldGoalsAttempted > 0) {
-    const efg = (stats.fieldGoalsMade + 0.5 * stats.threePointersMade) / stats.fieldGoalsAttempted;
-    stats.effectiveFieldGoalPercentage = efg;
-    
-    stats.trueShootingAttempts = stats.fieldGoalsAttempted + 0.44 * stats.freeThrowsAttempted;
-  }
-}
-
-/**
- * Update team possession count
- */
-export function updatePossessions(gameStats: GameStats, isHomeTeam: boolean): void {
-  const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
-  teamStats.possessions++;
-}
-
-/**
- * Update minutes played for active players
- */
-export function updateMinutesPlayed(
-  gameStats: GameStats,
-  homeLineup: Player[],
-  awayLineup: Player[],
-  possessionDuration: number
-): void {
-  // Update home team minutes
-  for (const player of homeLineup) {
-    const playerStats = gameStats.homeTeam.players[player.id];
     if (playerStats) {
-      playerStats.minutes += possessionDuration;
+      playerStats.assists++;
+      teamStats.teamTotals.assists++;
     }
   }
-  
-  // Update away team minutes
-  for (const player of awayLineup) {
-    const playerStats = gameStats.awayTeam.players[player.id];
+
+  simulateFreeThrows(player: Player, attempts: number, clutchContext: number, rng: () => number): number {
+    // Base probability from ft rating (25-99 scale)
+    const ftRating = player.ratings.ft;
+    const ftZ = (ftRating - 50) / 12; // Convert to z-score
+
+    // Apply RTTB formula: base score from rating + consistency + clutch
+    const baseScore = ftZ * 0.8; // Base coefficient for FT shooting
+    const consistencyMod = ((player.ratings.consistency - 50) / 12) * 0.1; // Reduces variance
+    const clutchMod = ((player.ratings.clutch - 50) / 12) * clutchContext * 0.15; // Late game boost
+
+    // Noise based on consistency (lower consistency = more variance)
+    const noise = (1 - player.ratings.consistency / 100) * 0.2;
+
+    let makes = 0;
+    for (let i = 0; i < attempts; i++) {
+      const variance = (rng() - 0.5) * noise;
+      const finalScore = baseScore + consistencyMod + clutchMod + variance;
+      const probability = 1 / (1 + Math.exp(-finalScore)); // Logistic function
+
+      if (rng() < probability) {
+        makes++;
+      }
+    }
+
+    return makes;
+  }
+
+  recordFreeThrows(gameStats: GameStats, playerId: Id, attempts: number, makes: number, isHomeTeam: boolean): void {
+    const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+    const playerStats = teamStats.players[playerId];
+
     if (playerStats) {
-      playerStats.minutes += possessionDuration;
+      playerStats.freeThrowsAttempted += attempts;
+      playerStats.freeThrowsMade += makes;
+      playerStats.points += makes;
+
+      // Update team totals
+      teamStats.teamTotals.freeThrowsAttempted += attempts;
+      teamStats.teamTotals.freeThrowsMade += makes;
+      teamStats.teamTotals.points += makes;
     }
   }
-}
 
-/**
- * Calculate final game pace and other derived stats
- */
-export function finalizeGameStats(gameStats: GameStats, gameTimeMinutes: number): void {
-  gameStats.gameLength = gameTimeMinutes;
-  
-  // const totalPossessions = gameStats.homeTeam.possessions + gameStats.awayTeam.possessions;
-  const paceFactor = (48 / gameTimeMinutes); // Normalize to 48 minutes
-  
-  gameStats.homeTeam.pace = (gameStats.homeTeam.possessions * paceFactor);
-  gameStats.awayTeam.pace = (gameStats.awayTeam.possessions * paceFactor);
-  
-  gameStats.finalScore.home = gameStats.homeTeam.teamTotals.points;
-  gameStats.finalScore.away = gameStats.awayTeam.teamTotals.points;
-  
-  // Calculate plus/minus for all players
-  calculatePlusMinus(gameStats);
-}
+  recordDriveOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any): void {
+    playerStats.drives++;
+    teamTotals.drives++;
 
-/**
- * Calculate plus/minus for all players based on play-by-play
- */
-function calculatePlusMinus(gameStats: GameStats): void {
-  // This would require tracking which players were on court for each scoring play
-  // For now, we'll use a simplified version based on team performance
-  const scoreDiff = gameStats.finalScore.home - gameStats.finalScore.away;
-  
-  // Distribute plus/minus based on minutes played (simplified)
-  for (const playerStats of Object.values(gameStats.homeTeam.players)) {
-    playerStats.plusMinus = scoreDiff * (playerStats.minutes / 240); // 240 = 48 minutes * 5 players
+    if (outcome.blowby) {
+      playerStats.drivesSuccessful++;
+      teamTotals.drivesSuccessful++;
+    }
   }
-  
-  for (const playerStats of Object.values(gameStats.awayTeam.players)) {
-    playerStats.plusMinus = -scoreDiff * (playerStats.minutes / 240);
-  }
-}
 
-/**
- * Generate a stats summary for display
- */
-export function generateStatsSummary(gameStats: GameStats): string {
-  const home = gameStats.homeTeam;
-  const away = gameStats.awayTeam;
-  
-  let summary = `\n=== GAME STATS SUMMARY ===\n`;
-  summary += `Final Score: ${gameStats.finalScore.home} - ${gameStats.finalScore.away}\n`;
-  summary += `Game Length: ${gameStats.gameLength.toFixed(1)} minutes\n`;
-  summary += `Pace: ${home.pace.toFixed(1)} possessions per 48min\n\n`;
-  
-  // Top performers
-  const homeTopScorer = Object.values(home.players).reduce((a, b) => a.points > b.points ? a : b);
-  const awayTopScorer = Object.values(away.players).reduce((a, b) => a.points > b.points ? a : b);
-  
-  summary += `Top Scorers:\n`;
-  summary += `  Home: Player ${homeTopScorer.playerId} - ${homeTopScorer.points} pts, ${homeTopScorer.fieldGoalsMade}/${homeTopScorer.fieldGoalsAttempted} FG\n`;
-  summary += `  Away: Player ${awayTopScorer.playerId} - ${awayTopScorer.points} pts, ${awayTopScorer.fieldGoalsMade}/${awayTopScorer.fieldGoalsAttempted} FG\n\n`;
-  
-  // Team totals
-  summary += `Team Shooting:\n`;
-  summary += `  Home: ${home.teamTotals.fieldGoalsMade}/${home.teamTotals.fieldGoalsAttempted} FG (${(home.teamTotals.fieldGoalsMade/home.teamTotals.fieldGoalsAttempted*100).toFixed(1)}%)\n`;
-  summary += `  Away: ${away.teamTotals.fieldGoalsMade}/${away.teamTotals.fieldGoalsAttempted} FG (${(away.teamTotals.fieldGoalsMade/away.teamTotals.fieldGoalsAttempted*100).toFixed(1)}%)\n`;
-  
-  return summary;
+  recordPassOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any): void {
+    playerStats.passesAttempted++;
+    teamTotals.passesAttempted++;
+
+    if (outcome.complete) {
+      playerStats.passesCompleted++;
+      teamTotals.passesCompleted++;
+      // Note: Assists are recorded when the pass leads to a made shot
+    } else if (outcome.turnover) {
+      playerStats.turnovers++;
+      teamTotals.turnovers++;
+    }
+  }
+
+  recordReboundOutcome(playerStats: PlayerStats, teamTotals: PlayerStats, outcome: any, playerId: Id): void {
+    if (outcome.winner === playerId) {
+      if (outcome.offenseWon) {
+        playerStats.offensiveRebounds++;
+        teamTotals.offensiveRebounds++;
+      } else {
+        playerStats.defensiveRebounds++;
+        teamTotals.defensiveRebounds++;
+      }
+      playerStats.totalRebounds++;
+      teamTotals.totalRebounds++;
+    }
+  }
+
+  recordFoulOutcome(gameStats: GameStats, outcome: any, isHomeTeam: boolean): void {
+    const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+    const playerStats = teamStats.players[outcome.on];
+
+    if (playerStats) {
+      playerStats.foulsCommitted++;
+      teamStats.teamTotals.foulsCommitted++;
+    }
+  }
+
+  updateShootingEfficiency(stats: PlayerStats): void {
+    if (stats.fieldGoalsAttempted > 0) {
+      const efg = (stats.fieldGoalsMade + 0.5 * stats.threePointersMade) / stats.fieldGoalsAttempted;
+      stats.effectiveFieldGoalPercentage = efg;
+
+      stats.trueShootingAttempts = stats.fieldGoalsAttempted + 0.44 * stats.freeThrowsAttempted;
+    }
+  }
+
+  updatePossessions(gameStats: GameStats, isHomeTeam: boolean): void {
+    const teamStats = isHomeTeam ? gameStats.homeTeam : gameStats.awayTeam;
+    teamStats.possessions++;
+  }
+
+  updateMinutesPlayed(
+    gameStats: GameStats,
+    homeLineup: Player[],
+    awayLineup: Player[],
+    possessionDuration: number
+  ): void {
+    // Update home team minutes
+    for (const player of homeLineup) {
+      const playerStats = gameStats.homeTeam.players[player.id];
+      if (playerStats) {
+        playerStats.minutes += possessionDuration;
+      }
+    }
+
+    // Update away team minutes
+    for (const player of awayLineup) {
+      const playerStats = gameStats.awayTeam.players[player.id];
+      if (playerStats) {
+        playerStats.minutes += possessionDuration;
+      }
+    }
+  }
+
+  finalizeGameStats(gameStats: GameStats, gameTimeMinutes: number): void {
+    gameStats.gameLength = gameTimeMinutes;
+
+    // const totalPossessions = gameStats.homeTeam.possessions + gameStats.awayTeam.possessions;
+    const paceFactor = 48 / gameTimeMinutes; // Normalize to 48 minutes
+
+    gameStats.homeTeam.pace = gameStats.homeTeam.possessions * paceFactor;
+    gameStats.awayTeam.pace = gameStats.awayTeam.possessions * paceFactor;
+
+    gameStats.finalScore.home = gameStats.homeTeam.teamTotals.points;
+    gameStats.finalScore.away = gameStats.awayTeam.teamTotals.points;
+
+    // Calculate plus/minus for all players
+    this.calculatePlusMinus(gameStats);
+  }
+
+  calculatePlusMinus(gameStats: GameStats): void {
+    // This would require tracking which players were on court for each scoring play
+    // For now, we'll use a simplified version based on team performance
+    const scoreDiff = gameStats.finalScore.home - gameStats.finalScore.away;
+
+    // Distribute plus/minus based on minutes played (simplified)
+    for (const playerStats of Object.values(gameStats.homeTeam.players)) {
+      playerStats.plusMinus = scoreDiff * (playerStats.minutes / 240); // 240 = 48 minutes * 5 players
+    }
+
+    for (const playerStats of Object.values(gameStats.awayTeam.players)) {
+      playerStats.plusMinus = -scoreDiff * (playerStats.minutes / 240);
+    }
+  }
 }

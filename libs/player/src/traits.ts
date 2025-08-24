@@ -278,7 +278,7 @@ export function applyTraitEffects(player: Player, traits: Trait[]): Player {
   for (const trait of traits) {
     for (const effect of trait.effects) {
       switch (effect.type) {
-        case 'ratings':
+        case 'ratings': {
           const currentValue = updatedRatings[effect.path];
           
           // Apply additive modifier
@@ -294,6 +294,7 @@ export function applyTraitEffects(player: Player, traits: Trait[]): Player {
           // Apply caps (these are stored for growth system, not applied immediately)
           // The growth system will reference these when applying skill points
           break;
+        }
           
         case 'relationship':
           relationships[effect.key] = Math.max(0, Math.min(100, relationships[effect.key] + effect.add));

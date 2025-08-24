@@ -1,4 +1,4 @@
-import type { Player, Ratings, Tendencies, PlayerArchetype, PlayerPosition } from '@basketball-sim/types';
+import type { Player, Ratings, Tendencies, PlayerArchetype, PlayerPosition, LeagueConfig } from '@basketball-sim/types';
 import { generateRandomTraits, applyTraitEffects } from './traits.js';
 import { initializeBadgeProgress } from './badges.js';
 import { initializeTendencyDistributions } from '@basketball-sim/math';
@@ -15,6 +15,7 @@ export function generateRTTBPlayer(
   archetype: PlayerArchetype,
   position: PlayerPosition,
   seed: number,
+  leagueConfig: LeagueConfig,
   age = 18
 ): Player {
   const rng = (s: number) => {
@@ -23,7 +24,7 @@ export function generateRTTBPlayer(
   };
 
   // Step 1: Generate base ratings from archetype
-  const baseRatings = generateBaseRatings(archetype, position, seed, rng);
+  const baseRatings = generateBaseRatings(archetype, position, seed, rng, leagueConfig);
 
   // Step 2: Generate traits (1 archetype + 2 background + 0-1 quirk)
   const traits = generateRandomTraits(seed);
@@ -35,6 +36,7 @@ export function generateRTTBPlayer(
   let player: Player = {
     id,
     name,
+    position,
     ratings: baseRatings,
     tendencies: baseTendencies,
     traits: [],
@@ -69,7 +71,8 @@ function generateBaseRatings(
   archetype: PlayerArchetype,
   position: PlayerPosition,
   seed: number,
-  rng: (s: number) => number
+  rng: (s: number) => number,
+  leagueConfig: LeagueConfig
 ): Ratings {
   // Base rating ranges by archetype
   let baseRating: number;
@@ -77,16 +80,16 @@ function generateBaseRatings(
 
   switch (archetype) {
     case 'generational':
-      baseRating = 85; // 80-90 range
-      variance = 5;
+      baseRating = leagueConfig.averageTalent + 10;
+      variance = leagueConfig.talentSpread + 5;
       break;
     case 'top_100':
-      baseRating = 75; // 70-80 range
-      variance = 5;
+      baseRating = leagueConfig.averageTalent;
+      variance = leagueConfig.talentSpread;
       break;
     case 'unranked':
-      baseRating = 55; // 50-60 range
-      variance = 5;
+      baseRating = leagueConfig.averageTalent - 10;
+      variance = leagueConfig.talentSpread - 5;
       break;
   }
 
@@ -284,7 +287,8 @@ function applyPhysicalAdjustments(
 export function generateRTTBTeam(
   teamId: string,
   teamName: string,
-  seed: number
+  seed: number,
+  leagueConfig: LeagueConfig
 ): { id: string; name: string; players: Player[] } {
   const players: Player[] = [];
 
@@ -315,6 +319,7 @@ export function generateRTTBTeam(
       plan.archetype,
       plan.position,
       seed + i * 1000,
+      leagueConfig,
       18 + Math.floor(Math.random() * 4) // Age 18-21
     );
     players.push(player);

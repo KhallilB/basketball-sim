@@ -1,7 +1,31 @@
-import type { Badge, BadgeProgress, Mod, Position } from '@basketball-sim/types';
+import type {
+  Badge,
+  BadgeProgress,
+  Mod,
+  Position
+  // OutcomeShot,
+  // OutcomeDrive,
+  // OutcomePass,
+  // OutcomeReb,
+  // OutcomeFoul
+} from '@basketball-sim/types';
 
 // RTTB Badge System Implementation
 // Contextual modifiers that activate based on game situation
+
+export type BadgeActivationContext = {
+  model: string;
+  zone?: string;
+  catch?: boolean;
+  distFt?: number;
+  angle?: string;
+  contact?: boolean;
+  position?: string;
+  laneAngle?: string;
+  gameTime?: number;
+  scoreDiff?: number;
+  [key: string]: string | number | boolean | undefined;
+};
 
 // ============================================================================
 // BADGE CATALOG - MVP Set from specification
@@ -191,23 +215,7 @@ export const BADGE_CATALOG: Badge[] = [
 /**
  * Check if a badge should activate given the current context
  */
-export function shouldActivateBadge(
-  badge: Badge,
-  context: {
-    model: string;
-    zone: string;
-    catch: boolean;
-    distFt: number;
-    angle: string;
-    contact: boolean;
-    position: string;
-    laneAngle: string;
-    gameTime: number;
-    scoreDiff: number;
-    [key: string]: string | number | boolean;
-  },
-  lastActiveTs?: number
-): boolean {
+export function shouldActivateBadge(badge: Badge, context: BadgeActivationContext, lastActiveTs?: number): boolean {
   // Check cooldown
   if (badge.runtime?.cooldownSec && lastActiveTs) {
     const now = Date.now() / 1000;
@@ -245,7 +253,7 @@ export function shouldActivateBadge(
  */
 export function getActiveBadgeModifiers(
   playerBadges: BadgeProgress[],
-  context: any
+  context: BadgeActivationContext
 ): { mods: Mod[]; activeBadges: string[] } {
   const mods: Mod[] = [];
   const activeBadges: string[] = [];
@@ -376,8 +384,13 @@ export function calculateBadgeModifierSum(
   return mods
     .filter(mod => mod.model === model)
     .reduce((sum, mod) => {
-      const value = (mod as any)[modType];
-      return sum + (typeof value === 'number' ? value : 0);
+      if (modType in mod) {
+        const value = mod[modType as keyof typeof mod];
+        if (typeof value === 'number') {
+          return sum + value;
+        }
+      }
+      return sum;
     }, 0);
 }
 
@@ -392,8 +405,8 @@ export function generateBadgeContext(
   gameTime?: number,
   scoreDiff?: number,
   isCatchAndShoot?: boolean
-): any {
-  const context: any = { model };
+): BadgeActivationContext {
+  const context: BadgeActivationContext = { model };
 
   if (zone) context.zone = zone;
   if (isCatchAndShoot !== undefined) context.catch = isCatchAndShoot;
