@@ -3,8 +3,7 @@
   "version": "0.0.0",
   "license": "MIT",
   "scripts": {
-    "start:sim": "node apps/sim-cli/dist/main.js",
-    "build:sim": "nx build sim-cli",
+    "sim": "npx tsx apps/sim-cli/src/main.ts",
     "build:all": "nx run-many --target=build --all",
     "serve": "nx serve sim-cli",
     "serve:dev": "nx serve sim-cli --configuration=development",
@@ -23,9 +22,10 @@
     "affected:build": "nx affected --target=build",
     "affected:test": "nx affected --target=test",
     "affected:lint": "nx affected --target=lint",
-    "sim": "nx serve sim-cli",
-    "sim:build": "nx build sim-cli && node apps/sim-cli/dist/main.js",
-    "dev": "nx serve sim-cli --configuration=development"
+    "validate": "npx tsx apps/sim-cli/src/main.ts --validate --games 100",
+    "validate:all": "npx tsx apps/sim-cli/src/main.ts --validate --games 2000",
+    "validate:league": "npx tsx apps/sim-cli/src/main.ts --validate --league",
+    "validate:help": "npx tsx apps/sim-cli/src/main.ts --help"
   },
   "private": true,
   "workspaces": [

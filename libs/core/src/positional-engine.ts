@@ -660,7 +660,7 @@ export class PositionalPossessionEngine {
       // Calculate RTTB-based weights for all players
       const weights = allPlayers.map(({ player }) => {
         // Get player position for distance calculation
-        const playerPos = ctx.state.formation.players[player.id];
+        const playerPos = ctx.state.formation.players[player.id] || { x: 47, y: 25 }; // Default center court position
         const reboundLoc = shotLocation || ctx.state.formation.ballPosition;
         const boxedOut = false; // Simplified for fallback
 

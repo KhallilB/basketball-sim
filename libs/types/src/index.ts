@@ -297,6 +297,975 @@ export type ReboundParticipant = {
   reboundWeight: number;
 };
 
+// ============================================================================
+// CAREER PHASE SYSTEM
+// ============================================================================
+
+/**
+ * Career phases representing different stages of a basketball player's development.
+ * Each phase has distinct characteristics affecting stat growth and gameplay.
+ * Includes full pipeline from high school through professional career.
+ * 
+ * @see CareerPhaseManager for phase transition logic
+ * @see calculateAgeEffects for phase-specific stat modifiers
+ */
+export type CareerPhase = 
+  | 'highschool'   // 14-18: Foundation building, high variability, potential identification
+  | 'college'      // 18-22: Structured development, competition level increase
+  | 'development'  // 18-22: Pro rookie years, learning fundamentals, inconsistent
+  | 'emergence'    // 22-25: Breaking out, establishing role, rapid skill gains
+  | 'prime'        // 26-30: Peak performance, maximum ratings, consistency
+  | 'veteran'      // 31-34: Experience compensates for declining athleticism
+  | 'decline'      // 35-37: Significant physical decline, high basketball IQ
+  | 'legacy';      // 38+: Rare players who adapt game for longevity
+
+/**
+ * Comprehensive career progression tracking for realistic player development.
+ * Integrates user choices with biological and performance factors.
+ */
+export type CareerProgression = {
+  /** Current career phase */
+  phase: CareerPhase;
+  
+  /** Years spent in current phase (0-based) */
+  phaseYear: number;
+  
+  /** Total professional years played */
+  totalYears: number;
+  
+  /** Age when player reached statistical peak (determined dynamically) */
+  peakAge?: number;
+  
+  /** Whether physical decline has begun (irreversible) */
+  declineStarted: boolean;
+  
+  /** Factors affecting career longevity and phase transitions */
+  longevityFactors: LongevityFactors;
+  
+  /** Player/user development choices affecting progression */
+  userChoices: UserDevelopmentChoices;
+  
+  /** Career milestone tracking for narrative events */
+  milestones: CareerMilestone[];
+};
+
+/**
+ * Factors determining how long a player can maintain effectiveness.
+ * Combines genetic, behavioral, and circumstantial elements.
+ */
+export type LongevityFactors = {
+  /** Genetic predisposition for longevity (0-100, rare >90) */
+  genetics: number;
+  
+  /** Work ethic and dedication to improvement (0-100) */
+  workEthic: number;
+  
+  /** Accumulated injury damage over career (0-100, higher = more damage) */
+  injuryHistory: number;
+  
+  /** Playing style affecting aging curve */
+  playStyle: PlayStyle;
+  
+  /** Ability to adapt role as skills decline (0-100) */
+  roleAdaptation: number;
+  
+  /** Current physical condition relative to age (0-100) */
+  conditioning: number;
+};
+
+/**
+ * Playing styles that age differently based on physical vs skill emphasis.
+ */
+export type PlayStyle = 
+  | 'explosive'     // Heavy athleticism reliance, earlier decline
+  | 'finesse'       // Skill-based with some athleticism, moderate aging
+  | 'fundamental'   // Pure skill and IQ, ages gracefully
+  | 'physical'      // Strength-based, steady decline
+  | 'versatile';    // Balanced, adapts well to aging
+
+/**
+ * Player development choices that affect career trajectory.
+ * Provides user agency in Create-a-Player and Coach modes.
+ */
+export type UserDevelopmentChoices = {
+  /** Selected training focuses for skill development */
+  trainingFocus: TrainingFocus[];
+  
+  /** Lifestyle choices affecting longevity factors */
+  lifestyleChoices: LifestyleChoice[];
+  
+  /** Willingness to accept reduced role for team success */
+  roleWillingness: RoleWillingness;
+  
+  /** Offseason development programs participated in */
+  offseasonPrograms: OffseasonProgram[];
+  
+  /** Injury management and recovery choices */
+  injuryManagement: InjuryManagementChoice[];
+};
+
+/**
+ * Training focus areas with specific skill development effects.
+ * Cost-benefit system requires strategic resource allocation.
+ */
+export type TrainingFocus = {
+  /** Unique identifier for training type */
+  id: string;
+  
+  /** Display name for user interface */
+  name: string;
+  
+  /** Detailed description of training benefits */
+  description: string;
+  
+  /** Stat effects applied when training is active */
+  effects: Effect[];
+  
+  /** Cost in skill points or development resources */
+  cost: number;
+  
+  /** Minimum duration for effectiveness (seasons) */
+  minDuration: number;
+  
+  /** Maximum effectiveness duration before diminishing returns */
+  maxDuration: number;
+  
+  /** Function determining if training is available to player */
+  availability: (player: Player) => boolean;
+  
+  /** Prerequisites that must be met */
+  prerequisites?: TrainingPrerequisite[];
+};
+
+/**
+ * Prerequisites for advanced training programs.
+ */
+export type TrainingPrerequisite = {
+  type: 'stat' | 'age' | 'phase' | 'trait' | 'achievement';
+  requirement: string | number;
+  description: string;
+};
+
+/**
+ * Lifestyle choices affecting long-term career development.
+ * Permanent decisions with lasting consequences.
+ */
+export type LifestyleChoice = {
+  /** Unique identifier */
+  id: string;
+  
+  /** Display name */
+  name: string;
+  
+  /** Modifications to longevity factors */
+  effects: Partial<LongevityFactors>;
+  
+  /** User-facing description of choice consequences */
+  description: string;
+  
+  /** Additional narrative tags for story integration */
+  narrativeTags?: string[];
+  
+  /** Career phase when choice becomes available */
+  availablePhase?: CareerPhase;
+  
+  /** Whether choice can be reversed later */
+  reversible: boolean;
+};
+
+/**
+ * Player attitude toward role changes as career evolves.
+ */
+export type RoleWillingness = {
+  /** Acceptance of reduced minutes (0-100) */
+  benchRole: number;
+  
+  /** Willingness to change positions (0-100) */
+  positionFlex: number;
+  
+  /** Acceptance of leadership responsibilities (0-100) */
+  mentorship: number;
+  
+  /** Willingness to take team-friendly contracts (0-100) */
+  teamFirst: number;
+};
+
+/**
+ * Structured offseason development programs.
+ */
+export type OffseasonProgram = {
+  id: string;
+  name: string;
+  description: string;
+  duration: number; // weeks
+  effects: Effect[];
+  cost: number;
+  requirements: (player: Player) => boolean;
+};
+
+/**
+ * Injury management choices affecting recovery and prevention.
+ */
+export type InjuryManagementChoice = {
+  id: string;
+  name: string;
+  description: string;
+  preventionBonus: number; // Injury resistance bonus
+  recoveryBonus: number; // Faster recovery from injuries  
+  longevityImpact: Partial<LongevityFactors>;
+  cost: number;
+};
+
+/**
+ * Career milestones for tracking player achievements.
+ * Used for narrative events and development triggers.
+ */
+export type CareerMilestone = {
+  id: string;
+  type: MilestoneType;
+  description: string;
+  achievedAt: {
+    age: number;
+    season: number;
+    phase: CareerPhase;
+  };
+  impact: {
+    reputation?: number;
+    confidence?: number;
+    marketValue?: number;
+    narrativeFlags?: string[];
+  };
+};
+
+/**
+ * Types of career milestones that can trigger events.
+ */
+export type MilestoneType =
+  | 'statistical'    // Stat thresholds (1000 points, etc.)
+  | 'achievement'    // Awards, records, team success  
+  | 'developmental'  // Phase transitions, skill breakthroughs
+  | 'social'         // Relationships, reputation changes
+  | 'adversity'      // Injuries, slumps, challenges
+  | 'legacy';        // Hall of fame, retirement, etc.
+
+/**
+ * Configuration for career phase boundaries and transitions.
+ * Allows tuning of aging curves for different archetypes.
+ */
+export type CareerPhaseConfig = {
+  /** Base age boundaries for each phase */
+  baseBoundaries: Record<CareerPhase, number>;
+  
+  /** Maximum modifier from longevity factors */
+  maxModifier: number;
+  
+  /** Weights for different longevity factors */
+  longevityWeights: {
+    genetics: number;
+    workEthic: number;
+    playStyle: Record<PlayStyle, number>;
+    conditioning: number;
+  };
+  
+  /** Probability of reaching legacy phase by archetype */
+  legacyProbability: Record<PlayerArchetype, number>;
+};
+
+// ============================================================================
+// LEAGUE SYSTEM & STAT NORMALIZATION
+// ============================================================================
+
+/**
+ * Basketball competition leagues with different talent levels and styles.
+ * Uses fictional league names to avoid licensing while maintaining clear hierarchy.
+ * Multiple leagues per tier offer strategic choices for player development.
+ */
+export type League = 
+  // HIGH SCHOOL TIER (Ages 14-18)
+  | 'prep_elite'         // Elite Prep Academy - Top facilities, national exposure
+  | 'prep_traditional'   // Traditional High School - Local community, balanced academics
+  | 'prep_military'      // Military Prep Academy - Discipline, structure, character building
+  
+  // AMATEUR/AAU TIER (Ages 16-18)  
+  | 'amateur_showcase'   // National Showcase Circuit - Elite exposure, individual focus
+  | 'amateur_grassroots' // Grassroots Basketball League - Community-based, fundamentals
+  | 'amateur_travel'     // Elite Travel Circuit - Extensive travel, competition variety
+  
+  // COLLEGE TIER (Ages 18-22)
+  | 'university_power'   // Power Conference - Top competition, media exposure, pressure
+  | 'university_mid'     // Mid-Major Conference - Good competition, development focus
+  | 'university_small'   // Small College - Personal attention, academics priority
+  | 'university_juco'    // Junior College - Second chances, quick development path
+  
+  // PROFESSIONAL DEVELOPMENT TIER (Ages 18-25)
+  | 'development_main'   // Main Development League - Premier pro pathway
+  | 'development_elite'  // Elite Development Circuit - International style, skill focus
+  | 'development_local'  // Regional Development League - Local fan base, stability
+  
+  // INTERNATIONAL PROFESSIONAL TIER (Ages 20-35)
+  | 'overseas_euro_top'    // Top European League - Elite competition, tactical play
+  | 'overseas_euro_mid'    // Mid European League - Good competition, development
+  | 'overseas_asia_elite'  // Elite Asian League - Growing markets, mixed styles
+  | 'overseas_asia_dev'    // Developing Asian League - Emerging markets, opportunity
+  | 'overseas_americas'    // Americas Professional League - Latin/South America
+  | 'overseas_africa'      // African Professional League - Growing basketball market
+  
+  // PREMIER PROFESSIONAL TIER (Ages 19-40)
+  | 'premier_main'       // Premier Basketball Association - Top league globally
+  | 'premier_womens'     // Premier Women's League - Top women's professional league
+  
+  // ELITE INTERNATIONAL TIER (Ages 22-38)
+  | 'international_world'    // World Basketball Championship - National teams
+  | 'international_continental' // Continental Championships - Regional elite competition
+  | 'international_olympics'    // Olympic Basketball - Highest honor in basketball
+
+/**
+ * League characteristics affecting gameplay simulation and stat normalization.
+ * Used to ensure players perform realistically across different competition levels.
+ */
+export type LeagueConfig = {
+  /** Unique league identifier */
+  id: League;
+  
+  /** Display name for UI */
+  name: string;
+  
+  /** Short description of league level */
+  description: string;
+  
+  /** Competition tier (1 = highest, 10 = lowest) */
+  tier: number;
+  
+  /** Average talent level of players (25-99 scale) */
+  averageTalent: number;
+  
+  /** Talent distribution spread (higher = more variation) */
+  talentSpread: number;
+  
+  /** Game style modifiers affecting stat production */
+  gameStyle: {
+    pace: number;           // Possessions per game multiplier (0.8-1.3)
+    threePointEmphasis: number;  // Three-point attempt rate modifier (0.7-1.4)
+    physicalPlay: number;   // Contact and fouling rate modifier (0.8-1.2)
+    ballMovement: number;   // Assist rate and ball movement modifier (0.9-1.2)
+    defense: number;        // Overall defensive intensity modifier (0.8-1.3)
+  };
+  
+  /** Stat normalization factors for realistic output */
+  statNormalization: {
+    scoring: number;        // Points per game adjustment (0.7-1.2)
+    rebounding: number;     // Rebounding rate adjustment (0.8-1.1)
+    assists: number;        // Assist rate adjustment (0.8-1.2)
+    steals: number;         // Steal rate adjustment (0.9-1.3)
+    blocks: number;         // Block rate adjustment (0.8-1.2)
+    turnovers: number;      // Turnover rate adjustment (0.9-1.2)
+    shooting: {
+      fg: number;           // Field goal percentage adjustment (0.95-1.05)
+      three: number;        // Three-point percentage adjustment (0.9-1.1)
+      ft: number;           // Free throw percentage adjustment (0.98-1.02)
+    };
+  };
+  
+  /** Development factors for player growth in this league */
+  developmentMultipliers: {
+    skillGrowth: number;    // How much players improve (0.5-1.5)
+    experience: number;     // Experience points multiplier (0.8-1.3)
+    badgeProgress: number;  // Badge progression rate (0.7-1.2)
+  };
+  
+  /** Age demographics typical for this league */
+  typicalAgeRange: {
+    min: number;
+    max: number;
+    average: number;
+  };
+};
+
+/**
+ * Player performance context for league-specific adjustments.
+ * Tracks how player attributes translate to actual performance.
+ */
+export type PerformanceContext = {
+  /** League player is competing in */
+  league: League;
+  
+  /** Player's percentile rank in this league (0-100) */
+  leaguePercentile: number;
+  
+  /** Competition level adjustment (-1 to 1) */
+  competitionAdjustment: number;
+  
+  /** Role adjustment based on team needs */
+  roleAdjustment: number;
+  
+  /** Minutes and usage adjustments */
+  usageContext: {
+    minutesPerGame: number;
+    usageRate: number;      // Percentage of team possessions used
+    shotAttempts: number;   // Expected shots per game
+    touches: number;        // Ball touches per game
+  };
+  
+  /** League adaptation factors */
+  adaptationFactors: {
+    gamesFamiliarity: number;  // How familiar with league style (0-1)
+    styleMatch: number;        // How well player style fits league (0-1)
+    confidenceLevel: number;   // Player confidence in this league (0-1)
+  };
+};
+
+/**
+ * Expected vs actual performance tracking for validation.
+ * Used to ensure simulation produces realistic statistical outcomes across 1000+ games.
+ */
+export type PerformanceExpectation = {
+  /** Player and league context */
+  playerId: Id;
+  league: League;
+  season: number;
+  
+  /** Expected statistical output based on ratings */
+  expected: {
+    pointsPerGame: number;
+    reboundsPerGame: number;
+    assistsPerGame: number;
+    stealsPerGame: number;
+    blocksPerGame: number;
+    turnoversPerGame: number;
+    fieldGoalPercentage: number;
+    threePointPercentage: number;
+    freeThrowPercentage: number;
+    usage: number;
+    efficiency: number;
+    plusMinus: number;
+  };
+  
+  /** Actual statistical output from simulation */
+  actual?: {
+    pointsPerGame: number;
+    reboundsPerGame: number;
+    assistsPerGame: number;
+    stealsPerGame: number;
+    blocksPerGame: number;
+    turnoversPerGame: number;
+    fieldGoalPercentage: number;
+    threePointPercentage: number;
+    freeThrowPercentage: number;
+    usage: number;
+    efficiency: number;
+    plusMinus: number;
+  };
+  
+  /** Games simulated for this expectation */
+  gamesPlayed: number;
+  
+  /** Acceptable variance ranges for validation */
+  acceptableRanges: {
+    pointsRange: [number, number];
+    efficiencyRange: [number, number];
+    usageRange: [number, number];
+  };
+  
+  /** Variance metrics for validation */
+  variance: {
+    pointsVariance: number;
+    efficiencyVariance: number;
+    overallVariance: number;
+    withinAcceptableRange: boolean;
+  };
+};
+
+/**
+ * League transition effects when players change competition levels.
+ * Critical for realistic Create-a-Player career progression.
+ */
+export type LeagueTransition = {
+  /** Transition identifier */
+  id: string;
+  
+  /** Source and destination leagues */
+  from: League;
+  to: League;
+  
+  /** Player making transition */
+  playerId: Id;
+  
+  /** Transition season/year */
+  season: number;
+  
+  /** Difficulty change assessment */
+  difficultyChange: {
+    overall: number;        // Overall difficulty change (-2 to 2)
+    pace: number;          // Pace adjustment difficulty
+    talent: number;        // Talent level adjustment
+    style: number;         // Style adaptation difficulty
+  };
+  
+  /** Adjustment period in games */
+  adjustmentPeriod: number;
+  
+  /** Performance modifiers during adjustment */
+  adjustmentEffects: {
+    confidence: number;     // Confidence impact (-0.3 to 0.3)
+    consistency: number;    // Performance consistency impact (-0.2 to 0.2)
+    efficiency: number;     // Overall efficiency impact (-0.15 to 0.15)
+    decayRate: number;      // How quickly adjustment effects fade (0.05-0.15)
+  };
+  
+  /** Success indicators for this transition type */
+  transitionMetrics: {
+    expectedSuccessRate: number;    // Historical success rate for this transition
+    keyAdaptationAreas: string[];   // Areas requiring most adaptation
+    timeToAdaptation: number;       // Expected games to full adaptation
+  };
+};
+
+/**
+ * Comprehensive stat validation for testing simulation accuracy.
+ * Ensures realistic outcomes across thousands of simulated games.
+ */
+export type StatValidationResult = {
+  /** Validation run identifier */
+  runId: string;
+  
+  /** Validation configuration */
+  config: {
+    gamesSimulated: number;
+    league: League;
+    playersCount: number;
+    seasonsSimulated: number;
+    validationDate: string;
+  };
+  
+  /** Overall accuracy metrics */
+  overallAccuracy: {
+    /** Percentage of players within expected stat ranges */
+    withinExpectedRange: number;
+    
+    /** Average absolute deviation from expected stats */
+    averageDeviation: number;
+    
+    /** Standard deviation of performance distribution */
+    standardDeviation: number;
+    
+    /** R-squared correlation between expected and actual */
+    correlation: number;
+    
+    /** Pass/fail status for validation */
+    validationPassed: boolean;
+  };
+  
+  /** Results by statistical category */
+  categoryResults: Record<string, {
+    expectedMean: number;
+    actualMean: number;
+    expectedStdDev: number;
+    actualStdDev: number;
+    deviation: number;
+    deviationPercentage: number;
+    withinRange: boolean;
+    sampleSize: number;
+  }>;
+  
+  /** Performance outliers requiring investigation */
+  outliers: Array<{
+    playerId: Id;
+    playerName?: string;
+    category: string;
+    expected: number;
+    actual: number;
+    deviation: number;
+    deviationSigmas: number;  // How many standard deviations from expected
+    possibleCauses: string[];
+  }>;
+  
+  /** League-specific validation metrics */
+  leagueMetrics: {
+    averageGameScore: number;
+    paceActual: number;
+    paceExpected: number;
+    shootingEfficiencyActual: number;
+    shootingEfficiencyExpected: number;
+    turnoverRateActual: number;
+    turnoverRateExpected: number;
+  };
+  
+  /** Recommendations for improvement */
+  recommendations: Array<{
+    category: string;
+    issue: string;
+    suggestion: string;
+    priority: 'high' | 'medium' | 'low';
+  }>;
+  
+  /** Validation timestamp and metadata */
+  metadata: {
+    timestamp: number;
+    validationVersion: string;
+    engineVersion: string;
+    seedUsed: number;
+  };
+};
+
+// ============================================================================
+// LEAGUE RECRUITMENT & CHOICE SYSTEM
+// ============================================================================
+
+/**
+ * League recruitment criteria and player fit assessment.
+ * Determines which leagues will recruit a player and with what intensity.
+ */
+export type LeagueRecruitmentCriteria = {
+  /** League doing the recruiting */
+  league: League;
+  
+  /** Required minimum ratings for consideration */
+  minimumRequirements: {
+    overallRating: number;
+    keyStats: Partial<Ratings>; // Specific ratings this league values
+    academicRequirement?: number; // For college leagues
+    characterRequirement?: number; // For some leagues
+  };
+  
+  /** What the league prioritizes in recruits */
+  priorities: {
+    /** Stat categories with importance weights (0-1) */
+    statPriorities: Record<keyof Ratings, number>;
+    
+    /** Player traits this league values */
+    preferredTraits: string[];
+    
+    /** Player traits this league avoids */
+    avoidedTraits: string[];
+    
+    /** Playing style preferences */
+    stylePreferences: {
+      playStyle: PlayStyle[];
+      positionNeeds: string[]; // Positions they're actively recruiting
+    };
+  };
+  
+  /** Recruitment intensity factors */
+  recruitmentFactors: {
+    /** How aggressively this league recruits (0-1) */
+    aggressiveness: number;
+    
+    /** How much they care about potential vs current ability */
+    potentialWeight: number; // 0 = current ability only, 1 = potential only
+    
+    /** Geographic preferences */
+    geographicPreference?: {
+      preferredRegions: string[];
+      localBonus: number; // Bonus for local players
+    };
+    
+    /** Competition from other leagues at this level */
+    competitionLevel: number;
+  };
+};
+
+/**
+ * Player's fit assessment with a specific league.
+ * Used to determine recruitment interest and player success probability.
+ */
+export type PlayerLeagueFit = {
+  /** League being evaluated */
+  league: League;
+  
+  /** Player being evaluated */
+  playerId: Id;
+  
+  /** Overall fit score (0-100) */
+  overallFit: number;
+  
+  /** Breakdown of fit factors */
+  fitFactors: {
+    /** How well player's ratings match league needs (0-100) */
+    statFit: number;
+    
+    /** How well player's style matches league style (0-100) */
+    styleFit: number;
+    
+    /** How well player's traits align with league values (0-100) */
+    culturalFit: number;
+    
+    /** Player's potential for growth in this league (0-100) */
+    developmentFit: number;
+    
+    /** Geographic/logistical fit (0-100) */
+    logisticalFit: number;
+  };
+  
+  /** Predicted outcomes if player joins this league */
+  projectedOutcomes: {
+    /** Expected playing time percentage */
+    expectedMinutes: number;
+    
+    /** Projected statistical performance */
+    projectedStats: {
+      pointsPerGame: number;
+      efficiency: number;
+      development: number; // Skill growth projection
+    };
+    
+    /** Recruitment/selection probability (0-1) */
+    selectionProbability: number;
+    
+    /** Expected career impact */
+    careerImpact: {
+      skillDevelopment: number; // How much skills will improve
+      exposure: number; // Media/scout exposure level  
+      networkBuilding: number; // Professional connections
+      academicImpact?: number; // For college leagues
+    };
+  };
+  
+  /** Risks and downsides of choosing this league */
+  risks: {
+    /** Probability of not meeting expectations (0-1) */
+    disappointmentRisk: number;
+    
+    /** Specific risks for this league choice */
+    specificRisks: Array<{
+      risk: string;
+      probability: number;
+      impact: 'low' | 'medium' | 'high';
+    }>;
+    
+    /** Opportunity cost compared to alternatives */
+    opportunityCost: string[];
+  };
+};
+
+/**
+ * League choice decision framework for Create-a-Player mode.
+ * Presents meaningful choices with clear trade-offs.
+ */
+export type LeagueChoice = {
+  /** Available league options */
+  availableLeagues: Array<{
+    league: League;
+    recruitmentStatus: 'recruited' | 'tryout_available' | 'walk_on' | 'unavailable';
+    offer?: LeagueOffer;
+  }>;
+  
+  /** Player making the choice */
+  playerId: Id;
+  
+  /** Current player phase affecting available choices */
+  currentPhase: CareerPhase;
+  
+  /** Decision deadline information */
+  decisionInfo: {
+    timeframe: string; // e.g., "End of senior season"
+    consequences: string; // What happens if no choice is made
+    canDelay: boolean; // Whether decision can be postponed
+  };
+  
+  /** Narrative context for the choice */
+  narrativeContext: {
+    situation: string; // Current situation description
+    pressures: string[]; // External pressures (family, coaches, etc.)
+    considerations: string[]; // Key factors to consider
+  };
+};
+
+/**
+ * Formal offer from a league to a player.
+ * Contains specific terms and commitments.
+ */
+export type LeagueOffer = {
+  /** League making the offer */
+  league: League;
+  
+  /** Player receiving offer */
+  playerId: Id;
+  
+  /** Offer details */
+  terms: {
+    /** Guaranteed role/position */
+    guaranteedRole?: string;
+    
+    /** Expected playing time */
+    expectedMinutes: number;
+    
+    /** Development commitments */
+    developmentCommitments: {
+      personalCoaching: boolean;
+      skillSpecialization: string[];
+      mentorshipProgram: boolean;
+    };
+    
+    /** Financial aspects (for professional leagues) */
+    compensation?: {
+      salary?: number;
+      bonuses?: Record<string, number>;
+      benefits?: string[];
+    };
+    
+    /** Academic support (for college leagues) */
+    academicSupport?: {
+      tutoring: boolean;
+      degreeProgram: string;
+      academicStanding: string;
+    };
+    
+    /** Lifestyle factors */
+    lifestyle: {
+      location: string;
+      facilities: string[];
+      travelCommitment: string;
+      timeCommitment: string;
+    };
+  };
+  
+  /** Offer expiration and conditions */
+  conditions: {
+    expirationDate: string;
+    conditions: string[]; // Conditions that must be met
+    competingOffers: boolean; // Whether other offers are expected
+  };
+  
+  /** Long-term implications */
+  implications: {
+    careerPathways: string[]; // What doors this opens
+    restrictions: string[]; // What this might limit
+    networkAccess: string[]; // Professional connections gained
+  };
+};
+
+/**
+ * League tier classification for strategic decision-making.
+ * Groups leagues by competition level and development focus.
+ */
+export type LeagueTier = {
+  /** Tier identifier */
+  id: string;
+  
+  /** Display name */
+  name: string;
+  
+  /** Leagues in this tier */
+  leagues: League[];
+  
+  /** Tier characteristics */
+  characteristics: {
+    /** Primary purpose of this tier */
+    purpose: 'development' | 'competition' | 'exposure' | 'professional' | 'elite';
+    
+    /** Typical age range */
+    ageRange: { min: number; max: number };
+    
+    /** Competition level (1-10) */
+    competitionLevel: number;
+    
+    /** Development focus areas */
+    developmentFocus: string[];
+    
+    /** Career pathways this tier provides */
+    careerPathways: string[];
+  };
+  
+  /** Tier-specific recruitment patterns */
+  recruitmentPatterns: {
+    /** How many players typically get multiple offers */
+    multipleOfferRate: number;
+    
+    /** How competitive the recruitment process is */
+    competitiveness: 'low' | 'medium' | 'high' | 'extreme';
+    
+    /** Key decision factors for this tier */
+    keyDecisionFactors: string[];
+  };
+};
+
+/**
+ * Player development path tracking through different leagues.
+ * Shows the journey and choices made throughout a career.
+ */
+export type DevelopmentPath = {
+  /** Player this path belongs to */
+  playerId: Id;
+  
+  /** Chronological league progression */
+  progression: Array<{
+    /** League played in */
+    league: League;
+    
+    /** Duration in league */
+    duration: {
+      startAge: number;
+      endAge: number;
+      seasons: number;
+    };
+    
+    /** How player got to this league */
+    entryMethod: 'recruited' | 'tryout' | 'walk_on' | 'transfer' | 'draft' | 'signed';
+    
+    /** Performance and development outcomes */
+    outcomes: {
+      /** Statistical performance */
+      stats: {
+        averageRating: number;
+        keyStats: Record<string, number>;
+        accolades: string[];
+      };
+      
+      /** Skill development achieved */
+      development: {
+        skillGains: Partial<Ratings>;
+        traitsAcquired: string[];
+        badgesEarned: string[];
+      };
+      
+      /** Career impact */
+      impact: {
+        exposure: number; // Media/scout attention gained
+        networkBuilding: number; // Connections made
+        reputation: number; // Reputation change
+      };
+    };
+    
+    /** Reason for leaving league */
+    exitReason?: string;
+    
+    /** Next destination decision factors */
+    nextChoiceFactors?: string[];
+  }>;
+  
+  /** Alternative paths not taken */
+  alternativePaths: Array<{
+    /** League option that was available but not chosen */
+    league: League;
+    
+    /** Why it wasn't chosen */
+    reasonNotChosen: string;
+    
+    /** What might have happened (speculative) */
+    projectedOutcome?: string;
+  }>;
+  
+  /** Path analysis for narrative purposes */
+  pathAnalysis: {
+    /** Overall path strategy */
+    strategy: 'traditional' | 'unconventional' | 'risk_taking' | 'safe' | 'opportunistic';
+    
+    /** Key turning points */
+    turningPoints: Array<{
+      decision: string;
+      impact: string;
+      alternativeConsidered: string;
+    }>;
+    
+    /** Path effectiveness */
+    effectiveness: {
+      developmentScore: number; // How well path developed player
+      opportunityScore: number; // How well path maximized opportunities
+      satisfactionScore: number; // Player satisfaction with choices
+    };
+  };
+};
+
 export type ReboundContext = {
   shotLocation: Position;
   reboundLocation: Position; // Calculated based on trajectory

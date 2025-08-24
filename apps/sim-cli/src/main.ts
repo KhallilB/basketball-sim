@@ -1,6 +1,6 @@
 import { PositionalPossessionEngine } from '@basketball-sim/core';
-import { Team, Player, GameStats, TeamStats, PlayerStats, PossessionState } from '@basketball-sim/types';
-import { initializeGameStats, finalizeGameStats, updateMinutesPlayed, RotationManager } from '@basketball-sim/systems';
+import { Team, Player, GameStats, TeamStats, PlayerStats, PossessionState, StatValidationResult } from '@basketball-sim/types';
+import { initializeGameStats, finalizeGameStats, updateMinutesPlayed, RotationManager, StatValidator, HIGH_SCHOOL_LEAGUES, AMATEUR_LEAGUES, COLLEGE_LEAGUES } from '@basketball-sim/systems';
 import {
   generateRTTBTeam,
   calculateRTTBOverall,
@@ -413,9 +413,183 @@ async function runEnhancedSimulation() {
   displayFullBoxScore(homeTeam, awayTeam, { home: finalHomeScore, away: finalAwayScore }, gameStats);
 }
 
+async function runStatValidation(league?: string, gamesCount = 1000) {
+  console.log('🔬 Statistical Validation Mode\n');
+  
+  const validator = new StatValidator();
+  const allLeagues = { ...HIGH_SCHOOL_LEAGUES, ...AMATEUR_LEAGUES, ...COLLEGE_LEAGUES };
+  
+  if (league) {
+    // Validate specific league
+    const leagueConfig = allLeagues[league];
+    if (!leagueConfig) {
+      console.error(`❌ League '${league}' not found.`);
+      console.log('Available leagues:', Object.keys(allLeagues).join(', '));
+      return;
+    }
+    
+    console.log(`🎯 Validating ${leagueConfig.name} (${league})`);
+    console.log(`📊 Simulating ${gamesCount} games...\n`);
+    
+    const result = await validator.validateLeague(league, leagueConfig, {
+      gamesCount,
+      detailedAnalysis: true
+    });
+    
+    displayValidationResults(result);
+  } else {
+    // Validate all leagues
+    console.log('🚀 Running comprehensive validation across all leagues...');
+    const results = await validator.validateAllLeagues(gamesCount);
+    
+    console.log('\n📈 COMPREHENSIVE VALIDATION SUMMARY');
+    console.log('═'.repeat(80));
+    
+    Object.entries(results).forEach(([leagueId, result]) => {
+      const config = allLeagues[leagueId];
+      const status = result.overallAccuracy.validationPassed ? '✅ PASS' : '❌ FAIL';
+      const accuracy = result.overallAccuracy.withinExpectedRange.toFixed(1);
+      
+      console.log(`${status} ${config?.name || leagueId}: ${accuracy}% accuracy`);
+      
+      if (!result.overallAccuracy.validationPassed && result.recommendations && result.recommendations.length > 0) {
+        const topIssue = result.recommendations[0];
+        console.log(`   ⚠️  Main issue: ${topIssue.category} - ${topIssue.issue}`);
+      }
+    });
+    
+    const passingLeagues = Object.values(results).filter((r: StatValidationResult) => r.overallAccuracy.validationPassed).length;
+    const totalLeagues = Object.keys(results).length;
+    
+    console.log(`\n🏆 Overall: ${passingLeagues}/${totalLeagues} leagues passing validation`);
+  }
+}
+
+function displayValidationResults(result: StatValidationResult) {
+  console.log('\n📊 VALIDATION RESULTS');
+  console.log('═'.repeat(80));
+  
+  const status = result.overallAccuracy.validationPassed ? '✅ PASSED' : '❌ FAILED';
+  console.log(`Status: ${status} (${result.overallAccuracy.withinExpectedRange.toFixed(1)}% categories within expected ranges)`);
+  
+  // Performance insights
+  if ((result.metadata as any).performanceMetrics) {
+    const perf = (result.metadata as any).performanceMetrics;
+    console.log(`\n⚡ Performance Metrics:`);
+    console.log(`  • Total games: ${perf.gamesCompleted}/${perf.gamesCompleted + perf.gamesFailed} (${perf.successRate.toFixed(1)}% success rate)`);
+    console.log(`  • Simulation speed: ${perf.gamesPerSecond.toFixed(1)} games/second`);
+    console.log(`  • Total time: ${perf.totalTimeSeconds.toFixed(1)}s`);
+    console.log(`  • Efficiency: ${((perf.gamesCompleted / perf.totalTimeSeconds) / 1000 * 60).toFixed(1)}K games/minute`);
+  }
+  
+  console.log(`\n🎯 League Metrics:`);
+  console.log(`  • Average Game Score: ${result.leagueMetrics.averageGameScore.toFixed(1)}`);
+  console.log(`  • Pace: ${result.leagueMetrics.paceActual.toFixed(1)} (expected: ${result.leagueMetrics.paceExpected})`);
+  console.log(`  • Shooting Efficiency: ${(result.leagueMetrics.shootingEfficiencyActual * 100).toFixed(1)}% (expected: ${(result.leagueMetrics.shootingEfficiencyExpected * 100).toFixed(1)}%)`);
+  console.log(`  • Turnover Rate: ${result.leagueMetrics.turnoverRateActual.toFixed(1)} (expected: ${result.leagueMetrics.turnoverRateExpected})`);
+  
+  console.log(`\n📈 Category Analysis:`);
+  Object.entries(result.categoryResults).forEach(([category, data]) => {
+    const icon = data.withinRange ? '✅' : '❌';
+    const deviation = data.deviationPercentage.toFixed(1);
+    const trend = data.actualMean > data.expectedMean ? '↗️' : '↘️';
+    console.log(`  ${icon} ${category}: ${data.actualMean.toFixed(3)} vs ${data.expectedMean.toFixed(3)} ${trend} (${deviation}% dev)`);
+  });
+  
+  if (result.recommendations && result.recommendations.length > 0) {
+    console.log(`\n💡 Recommendations:`);
+    result.recommendations.slice(0, 5).forEach((rec) => {
+      const priority = rec.priority === 'high' ? '🔥' : rec.priority === 'medium' ? '⚠️' : 'ℹ️';
+      console.log(`  ${priority} ${rec.category}: ${rec.suggestion}`);
+    });
+  }
+  
+  // Enhanced insights
+  const totalCategories = Object.keys(result.categoryResults).length;
+  const passingCategories = Object.values(result.categoryResults).filter((c: any) => c.withinRange).length;
+  const failingCategories = totalCategories - passingCategories;
+  
+  console.log(`\n🎯 Validation Insights:`);
+  console.log(`  • Categories analyzed: ${totalCategories}`);
+  console.log(`  • Passing validation: ${passingCategories} (${((passingCategories/totalCategories)*100).toFixed(1)}%)`);
+  console.log(`  • Needs adjustment: ${failingCategories} (${((failingCategories/totalCategories)*100).toFixed(1)}%)`);
+  console.log(`  • Average deviation: ${result.overallAccuracy.averageDeviation.toFixed(1)}%`);
+  
+  if (result.outliers && result.outliers.length > 0) {
+    console.log(`\n🚨 Statistical Outliers: ${result.outliers.length} found`);
+    result.outliers.slice(0, 3).forEach((outlier) => {
+      console.log(`  • Player ${outlier.playerId}: ${outlier.category} - Expected ${outlier.expected.toFixed(1)}, Actual ${outlier.actual.toFixed(1)}`);
+    });
+  }
+}
+
+function showUsage() {
+  console.log('🏀 Basketball Simulation CLI\n');
+  console.log('Usage:');
+  console.log('  npm run serve                           # Run interactive simulation');
+  console.log('  npm run serve -- --validate            # Validate all leagues (1000 games each)');
+  console.log('  npm run serve -- --validate --league <league_id>  # Validate specific league');
+  console.log('  npm run serve -- --validate --games <count>       # Set number of games');
+  console.log('  npm run serve -- --help                # Show this help');
+  console.log('');
+  console.log('Validation Examples:');
+  console.log('  npm run serve -- --validate --league prep_elite --games 2000');
+  console.log('  npm run serve -- --validate --league university_power');
+  console.log('  npm run serve -- --validate --games 500');
+  console.log('');
+  console.log('Available Leagues:');
+  console.log('  High School:', Object.keys(HIGH_SCHOOL_LEAGUES).join(', '));
+  console.log('  Amateur:', Object.keys(AMATEUR_LEAGUES).join(', '));
+  console.log('  College:', Object.keys(COLLEGE_LEAGUES).join(', '));
+}
+
+function parseCliArgs() {
+  const args = process.argv.slice(2);
+  const options: {
+    validate?: boolean;
+    league?: string;
+    games?: number;
+    help?: boolean;
+  } = {};
+  
+  for (let i = 0; i < args.length; i++) {
+    switch (args[i]) {
+      case '--validate':
+        options.validate = true;
+        break;
+      case '--league':
+        options.league = args[i + 1];
+        i++; // Skip next arg
+        break;
+      case '--games':
+        options.games = parseInt(args[i + 1]) || 1000;
+        i++; // Skip next arg
+        break;
+      case '--help':
+        options.help = true;
+        break;
+    }
+  }
+  
+  return options;
+}
+
 async function main() {
   console.log('🏀 Basketball Simulation - Enhanced Engine with Stats Tracking\n');
-
+  
+  const options = parseCliArgs();
+  
+  if (options.help) {
+    showUsage();
+    return;
+  }
+  
+  if (options.validate) {
+    await runStatValidation(options.league, options.games || 1000);
+    return;
+  }
+  
+  // Default: Run interactive simulation
   await runEnhancedSimulation();
 
   console.log('\n✅ Enhanced Basketball Simulation Complete!');
@@ -434,6 +608,8 @@ async function main() {
   console.log('  • Minutes tracking and fatigue management');
   console.log('  • Realistic shooting percentages (45-55%)');
   console.log('  • Full box score with all player stats');
+  console.log('');
+  console.log('💡 Pro tip: Use --help to see validation options!');
 }
 
 main().catch(e => {
