@@ -32,6 +32,9 @@
     },
     {
       "path": "./libs/systems"
+    },
+    {
+      "path": "./libs/data"
     }
   ]
 }

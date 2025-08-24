@@ -4,15 +4,6 @@
   "include": [],
   "references": [
     {
-      "path": "../systems"
-    },
-    {
-      "path": "../gameplay"
-    },
-    {
-      "path": "../params"
-    },
-    {
       "path": "../policy"
     },
     {
@@ -23,6 +14,12 @@
     },
     {
       "path": "../types"
+    },
+    {
+      "path": "../params"
+    },
+    {
+      "path": "../gameplay"
     },
     {
       "path": "./tsconfig.lib.json"

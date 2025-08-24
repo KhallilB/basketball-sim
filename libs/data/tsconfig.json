@@ -19,5 +19,10 @@
     "types": ["vitest"]
   },
   "include": ["**/*.ts", "**/*.js"],
-  "exclude": ["node_modules", "tmp"]
+  "exclude": ["node_modules", "tmp"],
+  "references": [
+    {
+      "path": "../types"
+    }
+  ]
 }

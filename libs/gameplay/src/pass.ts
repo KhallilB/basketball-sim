@@ -14,35 +14,43 @@ export function passCompleteP(r: Ratings, laneRisk: number, pressure: number): E
 }
 
 /**
- * Calculate probability of assist based on passer skills and shot context
+ * Calculate probability of assist based on basketball rules and context
  */
 export function calculateAssistProbability(
   passer: Player,
   shooter: Player,
   dribblesAfterPass: number,
-  shotQuality: number,
-  ballMovement: number
+  shotQuality: number
 ): number {
-  // Base assist probability from passer's ratings
+  // Basketball rules: assist only possible with ≤2 dribbles
+  if (dribblesAfterPass > 2) {
+    return 0;
+  }
+
+  // Base assist probability - primarily based on passer ability and shot quality
   const passingZ = z(passer.ratings.pass);
   const iqZ = z(passer.ratings.iq);
-  
-  // Base score from passer ability
-  const baseScore = 0.8 * passingZ + 0.4 * iqZ;
-  
-  // Penalties for dribbles after pass (more dribbles = less likely assist)
-  const dribblePenalty = Math.min(dribblesAfterPass * 0.2, 1.0);
-  
-  // Bonus for good ball movement and shot quality
-  const qualityBonus = shotQuality * 0.3;
-  const movementBonus = ballMovement * 0.2;
-  
-  // Final score with penalties and bonuses
-  const finalScore = baseScore - dribblePenalty + qualityBonus + movementBonus;
-  
-  // Convert to probability using sigmoid function
-  const probability = logistic(finalScore);
-  
-  // Cap at reasonable maximum (85%)
-  return Math.min(0.85, Math.max(0.05, probability));
+  const shooterIqZ = z(shooter.ratings.iq); // Shooter positioning/awareness
+
+  // Start with high base probability for good passes leading to made shots
+  let baseProb = 0.85;
+
+  // Adjust based on passer skill (better passers get more assists)
+  const passerAdjustment = (passingZ + iqZ * 0.5) * 0.1;
+  baseProb += passerAdjustment;
+
+  // Adjust based on shooter positioning/IQ
+  const shooterAdjustment = shooterIqZ * 0.05;
+  baseProb += shooterAdjustment;
+
+  // Penalty for dribbles (each dribble reduces assist chance)
+  const dribblePenalty = dribblesAfterPass * 0.15;
+  baseProb -= dribblePenalty;
+
+  // Bonus for shot quality (good passes to open shots more likely to be assists)
+  const qualityBonus = shotQuality * 0.1;
+  baseProb += qualityBonus;
+
+  // Cap between reasonable bounds
+  return Math.min(0.95, Math.max(0.1, baseProb));
 }

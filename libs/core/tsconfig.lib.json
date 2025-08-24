@@ -12,15 +12,6 @@
   "include": ["src/**/*.ts"],
   "references": [
     {
-      "path": "../systems/tsconfig.lib.json"
-    },
-    {
-      "path": "../gameplay/tsconfig.lib.json"
-    },
-    {
-      "path": "../params/tsconfig.lib.json"
-    },
-    {
       "path": "../policy/tsconfig.lib.json"
     },
     {
@@ -31,6 +22,12 @@
     },
     {
       "path": "../types/tsconfig.lib.json"
+    },
+    {
+      "path": "../params/tsconfig.lib.json"
+    },
+    {
+      "path": "../gameplay/tsconfig.lib.json"
     }
   ]
 }
