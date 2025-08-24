@@ -291,6 +291,106 @@ export function calculateShotQuality(shooterPos: Position, defenderPos: Position
   return clamp(baseQuality, 0, 1);
 }
 
+// ============================================================================
+// TALENT SCALING MATHEMATICAL CURVES
+// ============================================================================
+
+/**
+ * Apply mathematical scaling curve to normalized talent value (0-1).
+ * These functions create non-linear distributions for generating statistical outliers.
+ */
+export function applyExponentialCurve(normalizedTalent: number, base: number, exponent: number): number {
+  return base * Math.exp(exponent * normalizedTalent);
+}
+
+export function applyPowerCurve(normalizedTalent: number, base: number, exponent: number): number {
+  return base * Math.pow(normalizedTalent, exponent);
+}
+
+export function applySigmoidCurve(
+  normalizedTalent: number,
+  ceiling: number,
+  exponent: number,
+  inflectionPoint = 0.5
+): number {
+  return ceiling / (1 + Math.exp(-exponent * (normalizedTalent - inflectionPoint)));
+}
+
+export function applyLogarithmicCurve(normalizedTalent: number, base: number, exponent: number): number {
+  return base + exponent * Math.log(1 + normalizedTalent);
+}
+
+/**
+ * Custom curve implementations for specific basketball statistical behaviors.
+ */
+export function applyShootingPercentageCurve(
+  normalizedTalent: number,
+  base: number,
+  exponent: number
+): number {
+  // Special curve for shooting percentages - diminishing returns at high end
+  // Prevents unrealistic 100% shooting seasons
+  const maxRealistic = 0.7; // 70% max realistic improvement
+  return base + maxRealistic * (1 - Math.exp(-exponent * normalizedTalent));
+}
+
+export function applyReboundingDominanceCurve(
+  normalizedTalent: number,
+  base: number
+): number {
+  // Rebounding can have extreme outliers (Wilt, Rodman style)
+  // But with exponential falloff to prevent impossible numbers
+  return base * Math.pow(normalizedTalent, 0.8) * (1 + 2 * normalizedTalent * normalizedTalent);
+}
+
+export function applyAssistVisionCurve(
+  normalizedTalent: number,
+  base: number
+): number {
+  // Assists can have extreme outliers but with IQ dependency
+  // Stockton/Magic style dominant playmaking
+  return base * Math.exp(1.5 * normalizedTalent * normalizedTalent);
+}
+
+/**
+ * Box-Muller transform for generating normal distribution from uniform random.
+ * Used for adding controlled variance to create outlier opportunities.
+ */
+export function boxMullerTransform(u1: number, u2: number): number {
+  return Math.sqrt(-2 * Math.log(u1)) * Math.cos(2 * Math.PI * u2);
+}
+
+/**
+ * Apply controlled variance using Box-Muller normal distribution.
+ */
+export function addControlledVariance(
+  baseValue: number,
+  baseVariance: number,
+  varianceAmplifier: number,
+  randomSeed: number
+): number {
+  // Generate secondary random using simple LCG
+  const u2 = ((randomSeed * 12345) | 0) / 2147483647;
+  const normalRandom = boxMullerTransform(randomSeed, u2);
+
+  // Scale variance based on base value (higher values = more variance potential)
+  const scaledVariance = baseVariance * Math.sqrt(baseValue);
+  const varianceComponent = 1 + normalRandom * scaledVariance * varianceAmplifier;
+
+  return baseValue * Math.max(0.1, varianceComponent); // Prevent negative multipliers
+}
+
+/**
+ * Create a seeded random number generator for reproducible results.
+ */
+export function createSeededRandom(seed: number): () => number {
+  let state = seed;
+  return () => {
+    state = (state * 9301 + 49297) % 233280;
+    return state / 233280;
+  };
+}
+
 /**
  * Calculate rebound location based on shot trajectory and location
  */

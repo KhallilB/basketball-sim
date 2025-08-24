@@ -10,5 +10,18 @@
     "types": ["node"]
   },
   "include": ["src/**/*.ts"],
-  "references": [{ "path": "../types/tsconfig.lib.json" }, { "path": "../math/tsconfig.lib.json" }]
+  "references": [
+    {
+      "path": "../math/tsconfig.lib.json"
+    },
+    {
+      "path": "../player/tsconfig.lib.json"
+    },
+    {
+      "path": "../core/tsconfig.lib.json"
+    },
+    {
+      "path": "../types/tsconfig.lib.json"
+    }
+  ]
 }

@@ -16,6 +16,13 @@
     }
   },
   "dependencies": {
-    "tslib": "^2.3.0"
+    "tslib": "^2.3.0",
+    "@basketball-sim/gameplay": "^0.0.1",
+    "@basketball-sim/systems": "^0.0.1",
+    "@basketball-sim/params": "^0.0.1",
+    "@basketball-sim/types": "^0.0.1",
+    "@basketball-sim/math": "^0.0.1",
+    "@basketball-sim/random": "^0.0.1",
+    "@basketball-sim/policy": "^0.0.1"
   }
 }
