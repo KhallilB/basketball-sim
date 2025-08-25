@@ -1121,6 +1121,8 @@ export const LeagueConfigUtils = {
    * Calculate player fit score for a specific league
    */
   calculatePlayerFit(playerId: string, league: League, playerRatings: any): number {
+    // TODO: Use playerId for geographic bonuses, player-specific adjustments, or caching
+    void playerId;
     const criteria = LEAGUE_RECRUITMENT_CRITERIA[league];
     if (!criteria) return 0;
 

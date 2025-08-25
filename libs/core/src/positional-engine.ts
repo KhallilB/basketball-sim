@@ -384,8 +384,7 @@ export class PositionalPossessionEngine {
             passer,
             ctx.with,
             this.dribblesAfterPass,
-            Q, // Shot quality
-            ctx.state.spacing.ballMovement // Game flow
+            Q // Shot quality
           );
 
           if (ctx.rng.next() < assistProb) {

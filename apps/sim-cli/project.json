@@ -1,0 +1,32 @@
+{
+  "name": "@basketball-sim/sim-cli",
+  "targets": {
+    "build": {
+      "executor": "@nx/esbuild:esbuild",
+      "outputs": ["{options.outputPath}"],
+      "defaultConfiguration": "production",
+      "options": {
+        "platform": "node",
+        "outputPath": "apps/sim-cli/dist",
+        "format": ["cjs"],
+        "bundle": true,
+        "main": "apps/sim-cli/src/main.ts",
+        "tsConfig": "apps/sim-cli/tsconfig.json",
+        "assets": ["apps/sim-cli/src/assets"],
+        "esbuildOptions": {
+          "sourcemap": true,
+          "outExtension": {".js": ".js"}
+        }
+      },
+      "configurations": {
+        "development": {},
+        "production": {
+          "esbuildOptions": {
+            "sourcemap": false,
+            "outExtension": {".js": ".js"}
+          }
+        }
+      }
+    }
+  }
+}

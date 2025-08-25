@@ -244,8 +244,9 @@ async function runEnhancedSimulation() {
   const statsTracker = new StatsTracker();
 
   // Generate RTTB-enhanced teams with traits and badges
-  const homeTeam = generateRTTBTeam('HOME', 'Lakers', 12345);
-  const awayTeam = generateRTTBTeam('AWAY', 'Celtics', 54321);
+  const defaultLeagueConfig = HIGH_SCHOOL_LEAGUES.prep_elite;
+  const homeTeam = generateRTTBTeam('HOME', 'Lakers', 12345, defaultLeagueConfig);
+  const awayTeam = generateRTTBTeam('AWAY', 'Celtics', 54321, defaultLeagueConfig);
 
   console.log('\n🎯 RTTB System Active:');
   console.log(`  • ${getTraitsByKind('archetype').length} archetype traits available`);
@@ -433,8 +434,7 @@ async function runStatValidation(league?: string, gamesCount = 1000) {
     console.log(`📊 Simulating ${gamesCount} games...\n`);
     
     const result = await validator.validateLeague(league, leagueConfig, {
-      gamesCount,
-      detailedAnalysis: true
+      gamesCount
     });
     
     displayValidationResults(result);
